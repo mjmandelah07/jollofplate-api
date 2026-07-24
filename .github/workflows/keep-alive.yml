@@ -1,0 +1,26 @@
+# Pings the deployed API every 10 minutes so Render free tier stays awake.
+# Set repo variable KEEP_ALIVE_URL (or secret) to your public base URL, e.g.
+#   https://jollofplate-api.onrender.com
+name: Keep Alive
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /health
+        env:
+          KEEP_ALIVE_URL: ${{ vars.KEEP_ALIVE_URL || secrets.KEEP_ALIVE_URL }}
+        run: |
+          if [ -z "$KEEP_ALIVE_URL" ]; then
+            echo "Set KEEP_ALIVE_URL as a repo variable or secret (e.g. https://your-app.onrender.com)"
+            exit 1
+          fi
+          BASE="${KEEP_ALIVE_URL%/}"
+          echo "GET ${BASE}/health"
+          curl -fsS --retry 2 --retry-delay 5 --max-time 30 "${BASE}/health"
+          echo

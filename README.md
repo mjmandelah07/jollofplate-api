@@ -121,6 +121,18 @@ API defaults to **http://localhost:3001**.
 | `npm run prisma:seed` | Seed admin + sample menu |
 | `npm run build` | Production build |
 
+## Keep-alive (Render free tier)
+
+Render free web services sleep after ~15 minutes idle. A GitHub Action pings `GET /health` every **10 minutes**.
+
+1. Push this repo (workflow: `.github/workflows/keep-alive.yml`).
+2. In GitHub → **Settings → Secrets and variables → Actions → Variables**, add:
+   - Name: `KEEP_ALIVE_URL`
+   - Value: your Render base URL (no trailing slash), e.g. `https://jollofplate-api.onrender.com`
+3. Run **Actions → Keep Alive → Run workflow** once to verify, or wait for the schedule.
+
+Health check locally: `curl http://localhost:3001/health` → `{ "status": "ok" }`.
+
 ## Product requirements
 
 See [`docs/PRD.md`](./docs/PRD.md) for endpoints, auth rules, and out-of-scope items.
@@ -128,6 +140,7 @@ See [`docs/PRD.md`](./docs/PRD.md) for endpoints, auth rules, and out-of-scope i
 ## Related docs
 
 - API PRD: [`docs/PRD.md`](./docs/PRD.md)
+- Frontend API (bodies + responses): [`docs/FRONTEND_API.md`](./docs/FRONTEND_API.md)
 - Frontend design flow (public + admin): [`docs/FRONTEND_DESIGN_FLOW.md`](./docs/FRONTEND_DESIGN_FLOW.md)
 - Discounts, referrals & growth: [`docs/DISCOUNTS_REFERRALS.md`](./docs/DISCOUNTS_REFERRALS.md)
 - Category image prompts: [`docs/CATEGORY_IMAGE_PROMPTS.md`](./docs/CATEGORY_IMAGE_PROMPTS.md)

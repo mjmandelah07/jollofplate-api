@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -12,6 +13,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { QueryOrdersDto } from './dto/query-orders.dto';
 import { OrdersService } from './orders.service';
 
 type RequestUser = { user: { id: string; role: string } };
@@ -28,8 +30,8 @@ export class OrdersController {
   }
 
   @Get()
-  findMine(@Req() req: RequestUser) {
-    return this.ordersService.findMine(req.user.id);
+  findMine(@Req() req: RequestUser, @Query() query: QueryOrdersDto) {
+    return this.ordersService.findMine(req.user.id, query);
   }
 
   @Get(':id')

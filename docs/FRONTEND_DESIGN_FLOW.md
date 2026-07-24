@@ -7,6 +7,8 @@
 
 This doc covers **Public site**, **Customer account**, and **Admin dashboard** flows matching the live API.
 
+> **API reference:** see [`FRONTEND_API.md`](./FRONTEND_API.md) for every endpoint with exact request bodies and response shapes.
+
 ---
 
 ## 0. App structure (recommended)
@@ -86,7 +88,7 @@ src/app/
 
 ```
 GET /settings
-GET /categories
+GET /categories?page=1&limit=20
 GET /meals/featured
 GET /meals/best-sellers
 ```
@@ -113,7 +115,7 @@ GET /meals/best-sellers
 **APIs**
 
 ```
-GET /categories
+GET /categories?search={q}&page=1&limit=20
 GET /meals?category={slug}&search={q}&page=1&limit=20
 ```
 
@@ -276,7 +278,8 @@ Prefer API `suggestedMessage`; frontend may enrich with address if you collect i
 
 **Route:** `/orders`  
 **Auth:** customer JWT  
-**API:** `GET /orders`
+**API:** `GET /orders?search={q}&status=PENDING&page=1&limit=20`  
+Response shape: `{ items, meta }` (same pagination as meals).
 
 **List cards**
 
@@ -366,7 +369,7 @@ Prefer API `suggestedMessage`; frontend may enrich with address if you collect i
 **APIs**
 
 ```
-GET    /admin/categories
+GET    /admin/categories?search={q}&status=ACTIVE&page=1&limit=20
 POST   /admin/categories
 PATCH  /admin/categories/:id
 DELETE /admin/categories/:id
@@ -376,6 +379,8 @@ POST   /admin/uploads
 
 **List UI**
 
+- Search + status filter + pagination (`items` / `meta`)  
+- For reorder: load full list via reorder response (unpaged) or a high `limit`  
 - Drag-and-drop rows → call reorder with `{ items: [{ id, sortOrder }] }`  
 - Columns: image, name, status, meal count, actions  
 
@@ -441,7 +446,7 @@ POST            /admin/uploads
 **APIs**
 
 ```
-GET    /admin/orders?status=PENDING
+GET    /admin/orders?search={q}&status=PENDING&page=1&limit=20
 GET    /admin/orders/:id
 PATCH  /admin/orders/:id/status
 DELETE /admin/orders/:id/items/:itemId
@@ -450,6 +455,8 @@ DELETE /admin/orders/:id/items/:itemId
 **List**
 
 - Tabs: All | Pending | Paid | Cancelled  
+- Search by order number, notes, or customer email/name/phone  
+- Pagination (`items` / `meta`)  
 - Show customer name/email/phone, order number, total, date  
 
 **Detail**

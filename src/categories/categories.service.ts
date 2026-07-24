@@ -9,19 +9,67 @@ import { slugify } from '../common/utils/slugify';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { ReorderCategoriesDto } from './dto/reorder-categories.dto';
+import { QueryCategoriesDto } from './dto/query-categories.dto';
 
 @Injectable()
 export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findPublic() {
-    return this.prisma.category.findMany({
-      where: { status: CategoryStatus.ACTIVE },
-      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-    });
+  async findPublic(query: QueryCategoriesDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = this.buildWhere(query, { publicOnly: true });
+
+    const [items, total] = await Promise.all([
+      this.prisma.category.findMany({
+        where,
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.category.count({ where }),
+    ]);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
   }
 
-  findAllAdmin() {
+  async findAllAdmin(query: QueryCategoriesDto = {}) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = this.buildWhere(query);
+
+    const [items, total] = await Promise.all([
+      this.prisma.category.findMany({
+        where,
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+        include: { _count: { select: { meals: true } } },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.category.count({ where }),
+    ]);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  /** Full list for drag-and-drop reorder UI (no pagination). */
+  findAllAdminUnpaged() {
     return this.prisma.category.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: { _count: { select: { meals: true } } },
@@ -100,7 +148,31 @@ export class CategoriesService {
         }),
       ),
     );
-    return this.findAllAdmin();
+    return this.findAllAdminUnpaged();
+  }
+
+  private buildWhere(
+    query: QueryCategoriesDto,
+    options?: { publicOnly?: boolean },
+  ): Prisma.CategoryWhereInput {
+    const where: Prisma.CategoryWhereInput = {};
+
+    if (options?.publicOnly) {
+      where.status = CategoryStatus.ACTIVE;
+    } else if (query.status) {
+      where.status = query.status as CategoryStatus;
+    }
+
+    if (query.search?.trim()) {
+      const term = query.search.trim();
+      where.OR = [
+        { name: { contains: term, mode: 'insensitive' } },
+        { slug: { contains: term, mode: 'insensitive' } },
+        { description: { contains: term, mode: 'insensitive' } },
+      ];
+    }
+
+    return where;
   }
 
   private async getNextSortOrder() {
