@@ -113,6 +113,15 @@ model Order {
   subtotal    Int
   deliveryFee Int         @default(0)
   total       Int
+  /// Street / house number / estate
+  deliveryLine1    String
+  /// Apartment, floor, etc. (optional)
+  deliveryLine2    String?
+  deliveryCity     String
+  deliveryState    String?
+  deliveryLandmark String?
+  /// Phone for the rider / delivery contact (optional; falls back to customer phone)
+  deliveryPhone    String?
   notes       String?
   paidAt      DateTime?
   items       OrderItem[]

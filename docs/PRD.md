@@ -200,6 +200,9 @@ Orders are stored so customers can track them and admins can confirm payment man
 - customerId
 - status
 - subtotal, deliveryFee, total (whole Naira)
+- delivery address (required on create):
+  - deliveryLine1, deliveryCity (required)
+  - deliveryLine2, deliveryState, deliveryLandmark, deliveryPhone (optional)
 - notes?
 - paidAt?
 - items[]
@@ -214,8 +217,8 @@ Orders are stored so customers can track them and admins can confirm payment man
 
 **Rules**
 
-- Creating an order sets status `PENDING` and snapshots meal prices
-- Frontend builds WhatsApp message using `orderNumber` + items + `settings.whatsappNumber`
+- Creating an order sets status `PENDING`, requires a delivery address, and snapshots meal prices
+- Frontend builds WhatsApp message using `orderNumber` + items + delivery address + `settings.whatsappNumber`
 - **Remove item** allowed for **customer (own order)** or **admin**, only when status is `PENDING`
 - After item removal, recalculate totals; if no items remain, cancel/delete the pending order
 - Admin can mark `PENDING` → `PAID` or `CANCELLED`

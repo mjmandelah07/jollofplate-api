@@ -76,6 +76,12 @@ export class OrdersService {
         subtotal,
         deliveryFee,
         total,
+        deliveryLine1: dto.deliveryAddress.line1.trim(),
+        deliveryLine2: dto.deliveryAddress.line2?.trim() || null,
+        deliveryCity: dto.deliveryAddress.city.trim(),
+        deliveryState: dto.deliveryAddress.state?.trim() || null,
+        deliveryLandmark: dto.deliveryAddress.landmark?.trim() || null,
+        deliveryPhone: dto.deliveryAddress.phone?.trim() || null,
         notes: dto.notes,
         items: {
           create: lineItems,
@@ -307,6 +313,10 @@ export class OrdersService {
       const searchOr: Prisma.OrderWhereInput[] = [
         { orderNumber: { contains: term, mode: 'insensitive' } },
         { notes: { contains: term, mode: 'insensitive' } },
+        { deliveryLine1: { contains: term, mode: 'insensitive' } },
+        { deliveryCity: { contains: term, mode: 'insensitive' } },
+        { deliveryLandmark: { contains: term, mode: 'insensitive' } },
+        { deliveryPhone: { contains: term, mode: 'insensitive' } },
       ];
 
       // Admin list can also match customer details
@@ -356,11 +366,32 @@ export class OrdersService {
     return `JP-${Date.now()}`;
   }
 
-  private withWhatsAppHint<T extends { orderNumber: string; total: number }>(
-    order: T,
-    whatsappNumber?: string | null,
-  ) {
-    const text = `Hello JollofPlate! I want to pay for order ${order.orderNumber} (Total: ₦${order.total}).`;
+  private withWhatsAppHint<
+    T extends {
+      orderNumber: string;
+      total: number;
+      deliveryLine1: string;
+      deliveryLine2: string | null;
+      deliveryCity: string;
+      deliveryState: string | null;
+      deliveryLandmark: string | null;
+      deliveryPhone: string | null;
+    },
+  >(order: T, whatsappNumber?: string | null) {
+    const addressParts = [
+      order.deliveryLine1,
+      order.deliveryLine2,
+      order.deliveryCity,
+      order.deliveryState,
+      order.deliveryLandmark ? `Landmark: ${order.deliveryLandmark}` : null,
+      order.deliveryPhone ? `Phone: ${order.deliveryPhone}` : null,
+    ].filter(Boolean);
+
+    const text = [
+      `Hello JollofPlate! I want to pay for order ${order.orderNumber} (Total: ₦${order.total}).`,
+      `Deliver to: ${addressParts.join(', ')}`,
+    ].join('\n');
+
     return {
       ...order,
       checkout: {

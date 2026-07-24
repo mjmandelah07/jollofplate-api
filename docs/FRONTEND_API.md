@@ -286,11 +286,29 @@ Body:
     },
     { "mealId": "cmd...", "quantity": 1 }
   ],
-  "notes": "No pepper please. Deliver to the gate."
+  "deliveryAddress": {
+    "line1": "12 Allen Avenue",
+    "line2": "Flat 3B",
+    "city": "Ikeja",
+    "state": "Lagos",
+    "landmark": "Near Computer Village gate",
+    "phone": "08012345678"
+  },
+  "notes": "No pepper please"
 }
 ```
 
-- `items` min 1; `quantity` min 1; `extras` and `notes` optional.
+| Field | Required | Notes |
+|---|---|---|
+| `items` | yes | min 1; `quantity` min 1; `extras` optional |
+| `deliveryAddress.line1` | yes | street / house / estate (min 3 chars) |
+| `deliveryAddress.city` | yes | |
+| `deliveryAddress.line2` | no | apartment / floor |
+| `deliveryAddress.state` | no | e.g. Lagos |
+| `deliveryAddress.landmark` | no | helps the rider |
+| `deliveryAddress.phone` | no | delivery contact; else use customer phone in UI |
+| `notes` | no | kitchen / order notes |
+
 - Each extra's `price` is added per unit: `lineTotal = (unitPrice + extrasTotal) × quantity`.
 - `unitPrice` = meal's `discountPrice` if set, else `price`.
 
@@ -305,7 +323,13 @@ Response `201`:
   "subtotal": 9500,
   "deliveryFee": 1000,
   "total": 10500,
-  "notes": "No pepper please. Deliver to the gate.",
+  "deliveryLine1": "12 Allen Avenue",
+  "deliveryLine2": "Flat 3B",
+  "deliveryCity": "Ikeja",
+  "deliveryState": "Lagos",
+  "deliveryLandmark": "Near Computer Village gate",
+  "deliveryPhone": "08012345678",
+  "notes": "No pepper please",
   "paidAt": null,
   "createdAt": "2026-07-24T21:00:00.000Z",
   "updatedAt": "2026-07-24T21:00:00.000Z",
@@ -325,7 +349,7 @@ Response `201`:
   ],
   "checkout": {
     "whatsappNumber": "2348000000000",
-    "suggestedMessage": "Hello JollofPlate! I want to pay for order JP-483920 (Total: ₦10500)."
+    "suggestedMessage": "Hello JollofPlate! I want to pay for order JP-483920 (Total: ₦10500).\nDeliver to: 12 Allen Avenue, Flat 3B, Ikeja, Lagos, Landmark: Near Computer Village gate, Phone: 08012345678"
   }
 }
 ```
@@ -336,7 +360,7 @@ Response `201`:
 https://wa.me/{checkout.whatsappNumber}?text={encodeURIComponent(message)}
 ```
 
-Build `message` from `items` + totals (see [`FRONTEND_DESIGN_FLOW.md`](./FRONTEND_DESIGN_FLOW.md) §2.3 for the helper). The API’s `checkout.suggestedMessage` is a short fallback (order number + total only).
+Build `message` from `items` + totals + **delivery address** (see [`FRONTEND_DESIGN_FLOW.md`](./FRONTEND_DESIGN_FLOW.md) §2.3). The API’s `checkout.suggestedMessage` is a short fallback (order number + total + address).
 
 Errors: `400` "Meal not available: <id>" (meal deleted/unavailable — remove it from the cart and retry).
 

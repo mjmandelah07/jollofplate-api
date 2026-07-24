@@ -240,13 +240,21 @@ GET /meals/:slug/related   # You may also like — up to 4
 
 **Steps**
 
-1. Review cart + notes  
+1. Review cart + **delivery address** + notes  
 2. Confirm delivery fee display (from settings)  
-3. Submit → `POST /orders`  
+3. Submit → `POST /orders` (requires `deliveryAddress`)  
 
 ```json
 {
   "notes": "Extra spicy please",
+  "deliveryAddress": {
+    "line1": "12 Allen Avenue",
+    "line2": "Flat 3B",
+    "city": "Ikeja",
+    "state": "Lagos",
+    "landmark": "Near Computer Village gate",
+    "phone": "08012345678"
+  },
   "items": [
     {
       "mealId": "...",
@@ -274,6 +282,12 @@ function buildWhatsAppMessage(order: {
   deliveryFee: number;
   total: number;
   notes?: string | null;
+  deliveryLine1: string;
+  deliveryLine2?: string | null;
+  deliveryCity: string;
+  deliveryState?: string | null;
+  deliveryLandmark?: string | null;
+  deliveryPhone?: string | null;
   items: { name: string; quantity: number; lineTotal: number; extras?: { name: string; price: number }[] | null }[];
 }) {
   const lines = order.items.map((item) => {
@@ -284,6 +298,17 @@ function buildWhatsAppMessage(order: {
     return `• ${item.quantity}x ${item.name}${extras} — ₦${item.lineTotal}`;
   });
 
+  const address = [
+    order.deliveryLine1,
+    order.deliveryLine2,
+    order.deliveryCity,
+    order.deliveryState,
+    order.deliveryLandmark ? `Landmark: ${order.deliveryLandmark}` : null,
+    order.deliveryPhone ? `Phone: ${order.deliveryPhone}` : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
   return [
     `Hello JollofPlate! I want to pay for order ${order.orderNumber}.`,
     '',
@@ -293,7 +318,9 @@ function buildWhatsAppMessage(order: {
     `Subtotal: ₦${order.subtotal}`,
     `Delivery: ₦${order.deliveryFee}`,
     `*Total: ₦${order.total}*`,
-    order.notes ? `\nNote: ${order.notes}` : '',
+    '',
+    `Deliver to: ${address}`,
+    order.notes ? `Note: ${order.notes}` : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -320,6 +347,7 @@ Subtotal: ₦10500
 Delivery: ₦1000
 *Total: ₦11500*
 
+Deliver to: 12 Allen Avenue, Flat 3B, Ikeja, Lagos, Landmark: Near Computer Village gate, Phone: 08012345678
 Note: Extra spicy please
 ```
 
@@ -359,7 +387,7 @@ Response shape: `{ items, meta }` (same pagination as meals).
 
 **Show**
 
-- Status, items, extras, totals, notes, paidAt (if any)  
+- Status, items, extras, totals, **delivery address**, notes, paidAt (if any)  
 - If `PENDING`:  
   - Remove item → `DELETE /orders/:id/items/:itemId`  
   - **Pay on WhatsApp** → rebuild message with `buildWhatsAppMessage(order)` + `GET /settings` for `whatsappNumber`, then open `wa.me` link (same as checkout)  
@@ -516,9 +544,9 @@ DELETE /admin/orders/:id/items/:itemId
 **List**
 
 - Tabs: All | Pending | Paid | Cancelled  
-- Search by order number, notes, or customer email/name/phone  
+- Search by order number, notes, address, or customer email/name/phone  
 - Pagination (`items` / `meta`)  
-- Show customer name/email/phone, order number, total, date  
+- Show customer name/email/phone, order number, **delivery city**, total, date  
 
 **Detail**
 
