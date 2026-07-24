@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -15,6 +16,7 @@ import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { ReorderCategoriesDto } from './dto/reorder-categories.dto';
+import { QueryCategoriesDto } from './dto/query-categories.dto';
 
 @Controller('admin/categories')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -23,8 +25,8 @@ export class AdminCategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
-  findAll() {
-    return this.categoriesService.findAllAdmin();
+  findAll(@Query() query: QueryCategoriesDto) {
+    return this.categoriesService.findAllAdmin(query);
   }
 
   @Get(':id')

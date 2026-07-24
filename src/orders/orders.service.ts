@@ -10,6 +10,7 @@ import {
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { QueryOrdersDto } from './dto/query-orders.dto';
 
 type AuthUser = { id: string; role: string };
 
@@ -86,12 +87,31 @@ export class OrdersService {
     return this.withWhatsAppHint(order, settings?.whatsappNumber);
   }
 
-  findMine(customerId: string) {
-    return this.prisma.order.findMany({
-      where: { customerId },
-      include: this.orderInclude(),
-      orderBy: { createdAt: 'desc' },
-    });
+  async findMine(customerId: string, query: QueryOrdersDto = {}) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = this.buildWhere(query, { customerId });
+
+    const [items, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        include: this.orderInclude(),
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
   }
 
   async findOneForCustomer(customerId: string, orderId: string) {
@@ -105,23 +125,42 @@ export class OrdersService {
     return order;
   }
 
-  findAllAdmin(status?: OrderStatus) {
-    return this.prisma.order.findMany({
-      where: status ? { status } : undefined,
-      include: {
-        ...this.orderInclude(),
-        customer: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
+  async findAllAdmin(query: QueryOrdersDto = {}) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const where = this.buildWhere(query);
+
+    const [items, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        include: {
+          ...this.orderInclude(),
+          customer: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+            },
           },
         },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit) || 1,
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    };
   }
 
   async findOneAdmin(orderId: string) {
@@ -247,6 +286,43 @@ export class OrdersService {
         orderBy: { createdAt: 'asc' as const },
       },
     };
+  }
+
+  private buildWhere(
+    query: QueryOrdersDto,
+    options?: { customerId?: string },
+  ): Prisma.OrderWhereInput {
+    const where: Prisma.OrderWhereInput = {};
+
+    if (options?.customerId) {
+      where.customerId = options.customerId;
+    }
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.search?.trim()) {
+      const term = query.search.trim();
+      const searchOr: Prisma.OrderWhereInput[] = [
+        { orderNumber: { contains: term, mode: 'insensitive' } },
+        { notes: { contains: term, mode: 'insensitive' } },
+      ];
+
+      // Admin list can also match customer details
+      if (!options?.customerId) {
+        searchOr.push(
+          { customer: { email: { contains: term, mode: 'insensitive' } } },
+          { customer: { firstName: { contains: term, mode: 'insensitive' } } },
+          { customer: { lastName: { contains: term, mode: 'insensitive' } } },
+          { customer: { phone: { contains: term, mode: 'insensitive' } } },
+        );
+      }
+
+      where.OR = searchOr;
+    }
+
+    return where;
   }
 
   private sumExtras(extras: unknown): number {

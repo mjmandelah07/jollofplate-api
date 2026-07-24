@@ -12,8 +12,8 @@ import {
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
-import { OrderStatus } from '../generated/prisma/client';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { QueryOrdersDto } from './dto/query-orders.dto';
 import { OrdersService } from './orders.service';
 
 type RequestUser = { user: { id: string; role: string } };
@@ -25,8 +25,8 @@ export class AdminOrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Get()
-  findAll(@Query('status') status?: OrderStatus) {
-    return this.ordersService.findAllAdmin(status);
+  findAll(@Query() query: QueryOrdersDto) {
+    return this.ordersService.findAllAdmin(query);
   }
 
   @Get(':id')

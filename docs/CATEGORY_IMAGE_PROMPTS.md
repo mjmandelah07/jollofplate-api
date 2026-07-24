@@ -114,13 +114,68 @@ Soft lighting, appetizing close-up, no text, no logo.
 
 ---
 
+## 8. Groceries
+
+**Use for:** everyday grocery packs, pantry staples, market-style bundles
+
+```text
+Create a premium product photo for the menu category "Groceries".
+Show a neat grocery arrangement on a warm cream surface: bags of rice, cooking oil, tomato paste cans, seasoning cubes, onions, peppers, and fresh tomatoes.
+Looks like a curated Nigerian kitchen starter pack — abundant but tidy, modern market aesthetic.
+Soft natural light, clean composition, appetizing and premium.
+No text, no logo, no watermark, no price tags.
+```
+
+**Variations (optional):**
+- Family pack: larger bags of rice and oil, bulk feel.
+- Fresh market: more produce (peppers, tomatoes, onions, scent leaf) less packaged goods.
+
+---
+
+## 9. Food Stuff
+
+**Use for:** dry foodstuff, spices, grains, soup ingredients, cooking staples
+
+```text
+Create a premium product photo for the menu category "Food Stuff".
+Show Nigerian dry foodstuff and cooking staples arranged attractively: bags or bowls of egusi, ground crayfish, dried pepper, beans, garri, ofada rice, and spice blends.
+Warm earthy tones with jollof-red and golden accents, rustic-premium feel on a warm cream surface.
+Looks fresh from a well-stocked African grocery shelf, clean and inviting.
+No text, no logo, no watermark, no packaging brand labels.
+```
+
+**Variations (optional):**
+- Soup base kit: egusi, stockfish pieces, dried fish, pepper, crayfish.
+- Swallow staples: garri, yam flour, plantain flour in neat bowls/bags.
+
+---
+
+## 10. Frozen Food
+
+**Use for:** frozen proteins, frozen veggies, ready-to-cook frozen packs
+
+```text
+Create a premium product photo for the menu category "Frozen Food".
+Show frozen Nigerian food items looking cold and fresh: vacuum-sealed or tray-packed chicken, fish, turkey, and maybe frozen spinach or mixed veggies.
+Subtle frost / cold condensation, clean white-and-cream cool tones with warm brand accents, modern freezer-aisle premium look.
+Food is the hero — appetizing even while frozen, tidy arrangement.
+No text, no logo, no watermark, no brand packaging labels.
+```
+
+**Variations (optional):**
+- Protein freezer pack: chicken, turkey, fish fillets only.
+- Ready-cook: frozen jollof/meal packs + protein in clear trays (still no logos).
+
+---
+
 ## Tips for better results
 
 1. Generate **square (1:1)** or **4:5** images for category cards.
 2. Ask: “Remove all text and logos” if any appear.
 3. Ask for **3 variations**, then pick the best.
 4. After generating, upload via `POST /admin/uploads`, then set the category `image` URL.
-5. Keep style consistent: same lighting and cream background across all 7 images.
+5. Keep style consistent: same lighting and cream background across all **10** images.
+6. For Groceries / Food Stuff / Frozen Food, explicitly say **no brand labels or barcodes** so the image stays usable as a category cover.
 
 ## Short “batch” prompt (all categories)
 
@@ -133,7 +188,10 @@ Using the JollofPlate brand style (warm, premium Nigerian food photography, joll
 5) Soups & Swallows
 6) Drinks
 7) Desserts / Small chops
-Make them visually consistent as a set for a modern food ordering app.
+8) Groceries
+9) Food Stuff
+10) Frozen Food
+Make them visually consistent as a set for a modern food ordering app. For groceries, food stuff, and frozen food: no brand labels or barcodes.
 ```
 
 ---

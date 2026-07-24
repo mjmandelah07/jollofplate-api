@@ -1,12 +1,13 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
+import { QueryCategoriesDto } from './dto/query-categories.dto';
 
 @Controller('categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Get()
-  findPublic() {
-    return this.categoriesService.findPublic();
+  findPublic(@Query() query: QueryCategoriesDto) {
+    return this.categoriesService.findPublic(query);
   }
 }
