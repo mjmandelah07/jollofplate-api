@@ -1,0 +1,143 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum CategoryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         String   @default("admin")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Customer {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  phone        String?
+  role         String   @default("customer")
+  orders       Order[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Category {
+  id          String         @id @default(cuid())
+  name        String
+  slug        String         @unique
+  image       String?
+  description String?
+  status      CategoryStatus @default(ACTIVE)
+  sortOrder   Int            @default(0)
+  meals       Meal[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+model Meal {
+  id              String      @id @default(cuid())
+  name            String
+  slug            String      @unique
+  description     String      @default("")
+  /// Whole Naira (₦), not kobo
+  price           Int
+  /// Whole Naira (₦), optional sale price
+  discountPrice   Int?
+  categoryId      String
+  category        Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images          String[]
+  /// Preparation time in minutes
+  preparationTime Int?
+  featured        Boolean     @default(false)
+  bestSeller      Boolean     @default(false)
+  available       Boolean     @default(true)
+  ingredients     String?
+  /// Optional add-ons: [{ "name": string, "price": number }]
+  extras          Json?
+  orderItems      OrderItem[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([categoryId])
+  @@index([available])
+  @@index([featured])
+  @@index([bestSeller])
+  @@index([slug])
+}
+
+/// Singleton restaurant profile (enforce one row in app layer)
+model RestaurantSettings {
+  id             String   @id @default(cuid())
+  restaurantName String
+  whatsappNumber String
+  contactNumber  String?
+  email          String?
+  address        String?
+  businessHours  Json?
+  deliveryFee    Int      @default(0)
+  socialLinks    Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique
+  customerId  String
+  customer    Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  status      OrderStatus @default(PENDING)
+  subtotal    Int
+  deliveryFee Int         @default(0)
+  total       Int
+  notes       String?
+  paidAt      DateTime?
+  items       OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@index([orderNumber])
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  mealId    String?
+  meal      Meal?    @relation(fields: [mealId], references: [id], onDelete: SetNull)
+  name      String
+  unitPrice Int
+  quantity  Int
+  extras    Json?
+  lineTotal Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([mealId])
+}
