@@ -211,6 +211,31 @@ Single meal by slug (only if `available`).
 
 Response `200`: one meal object (with `category`). Errors: `404` "Meal not found".
 
+### GET `/meals/:slug/related` (Public) — You may also like
+
+Up to **4** related available meals for the meal detail page.
+
+**Logic:**
+1. Same category first (featured → best seller → recently updated)
+2. If fewer than 4, fill with other featured / best-sellers
+
+Response `200`: array of meal objects (same shape as list items, with `category`). Empty array if nothing else is available. `404` if the slug itself is not found.
+
+```json
+[
+  {
+    "id": "cmd...",
+    "name": "Coconut Jollof",
+    "slug": "coconut-jollof",
+    "price": 3500,
+    "discountPrice": null,
+    "featured": false,
+    "bestSeller": true,
+    "category": { "id": "cmd...", "name": "Signature Jollof", "slug": "signature-jollof" }
+  }
+]
+```
+
 ### GET `/settings` (Public)
 
 Restaurant profile — use for footer, contact page, WhatsApp button, delivery fee display.
@@ -308,10 +333,10 @@ Response `201`:
 **WhatsApp handoff:** after creating the order, open
 
 ```
-https://wa.me/{checkout.whatsappNumber}?text={encodeURIComponent(checkout.suggestedMessage)}
+https://wa.me/{checkout.whatsappNumber}?text={encodeURIComponent(message)}
 ```
 
-then clear the local cart. Admin marks the order `PAID` after payment.
+Build `message` from `items` + totals (see [`FRONTEND_DESIGN_FLOW.md`](./FRONTEND_DESIGN_FLOW.md) §2.3 for the helper). The API’s `checkout.suggestedMessage` is a short fallback (order number + total only).
 
 Errors: `400` "Meal not available: <id>" (meal deleted/unavailable — remove it from the cart and retry).
 
@@ -595,6 +620,7 @@ Response `200`:
 | `/meals/featured` | GET | Public |
 | `/meals/best-sellers` | GET | Public |
 | `/meals/:slug` | GET | Public |
+| `/meals/:slug/related` | GET | Public |
 | `/settings` | GET | Public |
 | `/orders` | POST, GET | Customer |
 | `/orders/:id` | GET | Customer |
