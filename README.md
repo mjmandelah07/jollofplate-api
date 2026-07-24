@@ -128,5 +128,8 @@ See [`docs/PRD.md`](./docs/PRD.md) for endpoints, auth rules, and out-of-scope i
 ## Related docs
 
 - API PRD: [`docs/PRD.md`](./docs/PRD.md)
+- Discounts, referrals & growth: [`docs/DISCOUNTS_REFERRALS.md`](./docs/DISCOUNTS_REFERRALS.md)
+- Category image prompts: [`docs/CATEGORY_IMAGE_PROMPTS.md`](./docs/CATEGORY_IMAGE_PROMPTS.md)
+- Logo prompts: [`docs/LOGO_PROMPTS.md`](./docs/LOGO_PROMPTS.md)
 - Web repo: https://github.com/mjmandelah07/jollofplate-web
 - Brand guide (web): https://github.com/mjmandelah07/jollofplate-web/blob/master/docs/BRAND.md

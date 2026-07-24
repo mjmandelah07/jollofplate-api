@@ -37,7 +37,8 @@ export class CategoriesService {
   }
 
   async create(dto: CreateCategoryDto) {
-    const slug = await this.ensureUniqueSlug(dto.slug || slugify(dto.name));
+    const slug = await this.ensureUniqueSlug(slugify(dto.name));
+    const sortOrder = await this.getNextSortOrder();
 
     try {
       return await this.prisma.category.create({
@@ -47,7 +48,7 @@ export class CategoriesService {
           image: dto.image,
           description: dto.description,
           status: (dto.status as CategoryStatus | undefined) ?? CategoryStatus.ACTIVE,
-          sortOrder: dto.sortOrder ?? 0,
+          sortOrder,
         },
       });
     } catch (error) {
@@ -58,12 +59,18 @@ export class CategoriesService {
   async update(id: string, dto: UpdateCategoryDto) {
     await this.findOneAdmin(id);
 
-    const data: Prisma.CategoryUpdateInput = { ...dto };
-    if (dto.slug) {
-      data.slug = await this.ensureUniqueSlug(dto.slug, id);
-    } else if (dto.name) {
-      data.slug = await this.ensureUniqueSlug(slugify(dto.name), id);
-    }
+    const data: Prisma.CategoryUpdateInput = {
+      name: dto.name,
+      image: dto.image,
+      description: dto.description,
+      status: dto.status as CategoryStatus | undefined,
+    };
+
+    Object.keys(data).forEach((key) => {
+      if (data[key as keyof typeof data] === undefined) {
+        delete data[key as keyof typeof data];
+      }
+    });
 
     try {
       return await this.prisma.category.update({ where: { id }, data });
@@ -80,7 +87,8 @@ export class CategoriesService {
         'Cannot delete category with meals. Move or delete meals first.',
       );
     }
-    return this.prisma.category.delete({ where: { id } });
+    await this.prisma.category.delete({ where: { id } });
+    return { message: 'Category deleted' };
   }
 
   async reorder(dto: ReorderCategoriesDto) {
@@ -95,8 +103,17 @@ export class CategoriesService {
     return this.findAllAdmin();
   }
 
+  private async getNextSortOrder() {
+    const lastCategory = await this.prisma.category.findFirst({
+      orderBy: { sortOrder: 'desc' },
+      select: { sortOrder: true },
+    });
+
+    return (lastCategory?.sortOrder ?? -1) + 1;
+  }
+
   private async ensureUniqueSlug(base: string, excludeId?: string) {
-    let slug = slugify(base) || 'category';
+    const slug = slugify(base) || 'category';
     let suffix = 0;
 
     while (true) {

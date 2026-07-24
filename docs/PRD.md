@@ -50,14 +50,27 @@ Admins can create, update, delete, reorder, and toggle status.
 | Field | Type | Notes |
 |-------|------|-------|
 | name | string | required |
-| slug | string | unique, URL-safe |
+| slug | string | auto-generated from name (not accepted in create/update body) |
 | image | string? | Cloudinary URL |
 | description | string? | |
 | status | enum | active / inactive |
-| sortOrder | number | display order |
+| sortOrder | number | auto-assigned on create; change via reorder endpoint |
 
 **Public:** list active categories (sorted).  
 **Admin:** full CRUD + reorder.
+
+Admins do not send `slug` or `sortOrder` when creating/updating. Example create body:
+
+```json
+{
+  "name": "Signature Jollof",
+  "description": "classic party jollof, smoky jollof, coconut jollof",
+  "image": "https://res.cloudinary.com/.../signature.png",
+  "status": "ACTIVE"
+}
+```
+
+Backend returns generated `slug` (e.g. `signature-jollof`) and next `sortOrder`. Reorder with `PATCH /admin/categories/reorder`.
 
 ### 4.2 Meals
 
@@ -68,7 +81,7 @@ Admins manage all meal fields. Public consumers only see **available** meals (un
 | Field | Type | Notes |
 |-------|------|-------|
 | name | string | required |
-| slug | string | unique |
+| slug | string | auto-generated from name (not accepted in create/update body) |
 | description | string | |
 | price | int | whole **Naira** |
 | discountPrice | int? | optional |
@@ -112,12 +125,31 @@ Singleton resource for the restaurant.
 - contactNumber
 - email
 - address
-- businessHours (JSON or structured fields)
+- businessHours (ordered week Mon→Sun: `day`, `label`, `open`, `close`, `closed`, optional `timezone`)
 - deliveryFee
 - socialLinks (JSON)
 
 **Public:** GET settings (for footer, contact, WhatsApp number).  
 **Admin:** GET + UPDATE.
+
+Example `businessHours`:
+
+```json
+{
+  "timezone": "Africa/Lagos",
+  "week": [
+    { "day": "monday", "label": "Monday", "open": "10:00", "close": "21:00", "closed": false },
+    { "day": "tuesday", "label": "Tuesday", "open": "10:00", "close": "21:00", "closed": false },
+    { "day": "wednesday", "label": "Wednesday", "open": "10:00", "close": "21:00", "closed": false },
+    { "day": "thursday", "label": "Thursday", "open": "10:00", "close": "21:00", "closed": false },
+    { "day": "friday", "label": "Friday", "open": "10:00", "close": "22:00", "closed": false },
+    { "day": "saturday", "label": "Saturday", "open": "11:00", "close": "22:00", "closed": false },
+    { "day": "sunday", "label": "Sunday", "open": "12:00", "close": "20:00", "closed": false }
+  ]
+}
+```
+
+Times use 24h `HH:mm`. Set `"closed": true` for days off (open/close optional then).
 
 ### 4.5 Dashboard stats
 
@@ -303,3 +335,4 @@ Leave room in design notes / naming for:
 - `Address`
 - `PromoCode`, `Review`
 - `DeliveryZone`
+- Discount percent / scheduled deals, referral ledger — see [`DISCOUNTS_REFERRALS.md`](./DISCOUNTS_REFERRALS.md)

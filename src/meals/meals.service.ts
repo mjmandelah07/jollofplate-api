@@ -102,7 +102,7 @@ export class MealsService {
 
   async create(dto: CreateMealDto) {
     await this.ensureCategory(dto.categoryId);
-    const slug = await this.ensureUniqueSlug(dto.slug || slugify(dto.name));
+    const slug = await this.ensureUniqueSlug(slugify(dto.name));
 
     try {
       return await this.prisma.meal.create({
@@ -157,12 +157,6 @@ export class MealsService {
       data.category = { connect: { id: dto.categoryId } };
     }
 
-    if (dto.slug) {
-      data.slug = await this.ensureUniqueSlug(dto.slug, id);
-    } else if (dto.name) {
-      data.slug = await this.ensureUniqueSlug(slugify(dto.name), id);
-    }
-
     // Strip undefined so Prisma doesn't overwrite with undefined
     Object.keys(data).forEach((key) => {
       if (data[key as keyof typeof data] === undefined) {
@@ -185,7 +179,8 @@ export class MealsService {
 
   async remove(id: string) {
     await this.findOneAdmin(id);
-    return this.prisma.meal.delete({ where: { id } });
+    await this.prisma.meal.delete({ where: { id } });
+    return { message: 'Meal deleted' };
   }
 
   private async buildPublicWhere(
@@ -219,7 +214,7 @@ export class MealsService {
   }
 
   private async ensureUniqueSlug(base: string, excludeId?: string) {
-    let slug = slugify(base) || 'meal';
+    const slug = slugify(base) || 'meal';
     let suffix = 0;
 
     while (true) {

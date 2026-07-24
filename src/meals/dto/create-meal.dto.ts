@@ -17,10 +17,6 @@ export class CreateMealDto {
 
   @IsOptional()
   @IsString()
-  slug?: string;
-
-  @IsOptional()
-  @IsString()
   description?: string;
 
   @Type(() => Number)

@@ -38,12 +38,12 @@ export class SettingsService {
         businessHours:
           dto.businessHours === undefined
             ? undefined
-            : (dto.businessHours as Prisma.InputJsonValue),
+            : (dto.businessHours as unknown as Prisma.InputJsonValue),
         deliveryFee: dto.deliveryFee,
         socialLinks:
           dto.socialLinks === undefined
             ? undefined
-            : (dto.socialLinks as Prisma.InputJsonValue),
+            : (dto.socialLinks as unknown as Prisma.InputJsonValue),
       },
     });
   }
