@@ -128,6 +128,7 @@ See [`docs/PRD.md`](./docs/PRD.md) for endpoints, auth rules, and out-of-scope i
 ## Related docs
 
 - API PRD: [`docs/PRD.md`](./docs/PRD.md)
+- Frontend design flow (public + admin): [`docs/FRONTEND_DESIGN_FLOW.md`](./docs/FRONTEND_DESIGN_FLOW.md)
 - Discounts, referrals & growth: [`docs/DISCOUNTS_REFERRALS.md`](./docs/DISCOUNTS_REFERRALS.md)
 - Category image prompts: [`docs/CATEGORY_IMAGE_PROMPTS.md`](./docs/CATEGORY_IMAGE_PROMPTS.md)
 - Logo prompts: [`docs/LOGO_PROMPTS.md`](./docs/LOGO_PROMPTS.md)
