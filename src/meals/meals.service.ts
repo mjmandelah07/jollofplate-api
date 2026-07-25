@@ -78,6 +78,56 @@ export class MealsService {
     return meal;
   }
 
+  /**
+   * "You may also like" — up to 4 available meals.
+   * Prefer same category (featured / best-seller first), then fill from other
+   * featured / best-sellers if the category is thin.
+   */
+  async findRelated(slug: string) {
+    const meal = await this.findBySlug(slug);
+    const limit = 4;
+    const include = {
+      category: { select: { id: true, name: true, slug: true } },
+    } as const;
+
+    const sameCategory = await this.prisma.meal.findMany({
+      where: {
+        available: true,
+        categoryId: meal.categoryId,
+        id: { not: meal.id },
+      },
+      include,
+      orderBy: [
+        { featured: 'desc' },
+        { bestSeller: 'desc' },
+        { updatedAt: 'desc' },
+      ],
+      take: limit,
+    });
+
+    if (sameCategory.length >= limit) {
+      return sameCategory;
+    }
+
+    const excludeIds = [meal.id, ...sameCategory.map((m) => m.id)];
+    const fill = await this.prisma.meal.findMany({
+      where: {
+        available: true,
+        id: { notIn: excludeIds },
+        OR: [{ featured: true }, { bestSeller: true }],
+      },
+      include,
+      orderBy: [
+        { featured: 'desc' },
+        { bestSeller: 'desc' },
+        { updatedAt: 'desc' },
+      ],
+      take: limit - sameCategory.length,
+    });
+
+    return [...sameCategory, ...fill];
+  }
+
   findAllAdmin() {
     return this.prisma.meal.findMany({
       include: {

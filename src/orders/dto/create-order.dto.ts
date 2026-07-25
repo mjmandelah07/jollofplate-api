@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsString,
   Min,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 
@@ -24,12 +25,47 @@ export class CreateOrderItemDto {
   extras?: unknown;
 }
 
+export class DeliveryAddressDto {
+  /** Street / house number / estate */
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(3)
+  line1: string;
+
+  /** Apartment, floor, etc. */
+  @IsOptional()
+  @IsString()
+  line2?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  city: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
+
+  @IsOptional()
+  @IsString()
+  landmark?: string;
+
+  /** Rider / delivery contact phone */
+  @IsOptional()
+  @IsString()
+  phone?: string;
+}
+
 export class CreateOrderDto {
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
+
+  @IsNotEmpty()
+  @ValidateNested()
+  @Type(() => DeliveryAddressDto)
+  deliveryAddress: DeliveryAddressDto;
 
   @IsOptional()
   @IsString()

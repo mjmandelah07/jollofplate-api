@@ -21,6 +21,12 @@ export class MealsController {
     return this.mealsService.findBestSellers();
   }
 
+  /** You may also like — up to 4 related meals (same category, then fill) */
+  @Get(':slug/related')
+  findRelated(@Param('slug') slug: string) {
+    return this.mealsService.findRelated(slug);
+  }
+
   @Get(':slug')
   findBySlug(@Param('slug') slug: string) {
     return this.mealsService.findBySlug(slug);

@@ -9,6 +9,7 @@ import { UploadsModule } from './uploads/uploads.module';
 import { SettingsModule } from './settings/settings.module';
 import { StatsModule } from './stats/stats.module';
 import { OrdersModule } from './orders/orders.module';
+import { AddressesModule } from './addresses/addresses.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -26,6 +27,7 @@ import { AppService } from './app.service';
     SettingsModule,
     StatsModule,
     OrdersModule,
+    AddressesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -141,6 +141,7 @@ GET /meals?category={slug}&search={q}&page=1&limit=20
 
 ```
 GET /meals/:slug
+GET /meals/:slug/related   # You may also like — up to 4
 ```
 
 **Screen**
@@ -153,6 +154,7 @@ GET /meals/:slug
 - Quantity stepper
 - Primary CTA: **Add to cart**
 - Secondary: Back to menu
+- **You may also like** — horizontal cards from `/related` (same category first; fills with featured/best-sellers if needed)
 
 **Cart line item shape (client)**
 
@@ -213,7 +215,15 @@ GET /meals/:slug
 **On success**
 
 - Save `accessToken` as customer token  
+- `customer.emailVerified` is `false` until they click the email link  
+- Show “Check your email” toast; optional banner until verified  
 - Redirect: intended page (checkout) or `/orders`
+
+**Verify email**
+
+- Route: `/verify-email?token=...`  
+- API: `POST /auth/verify-email` `{ "token": "..." }`  
+- Resend (logged in): `POST /auth/resend-verification`
 
 ---
 
@@ -238,13 +248,21 @@ GET /meals/:slug
 
 **Steps**
 
-1. Review cart + notes  
+1. Review cart + **delivery address** + notes  
 2. Confirm delivery fee display (from settings)  
-3. Submit → `POST /orders`  
+3. Submit → `POST /orders` (requires `deliveryAddress`)  
 
 ```json
 {
   "notes": "Extra spicy please",
+  "deliveryAddress": {
+    "line1": "12 Allen Avenue",
+    "line2": "Flat 3B",
+    "city": "Ikeja",
+    "state": "Lagos",
+    "landmark": "Near Computer Village gate",
+    "phone": "08012345678"
+  },
   "items": [
     {
       "mealId": "...",
@@ -255,20 +273,99 @@ GET /meals/:slug
 }
 ```
 
-4. Response includes `orderNumber`, `total`, `checkout.whatsappNumber`, `checkout.suggestedMessage`  
+4. Response includes `orderNumber`, `total`, `items`, `checkout.whatsappNumber`, `checkout.suggestedMessage`  
 5. Clear local cart  
-6. Open WhatsApp deep link:
+6. Open WhatsApp deep link with the **full order list** in the message:
 
 ```
-https://wa.me/{whatsappNumber}?text={encodeURIComponent(suggestedMessage)}
+https://wa.me/{whatsappNumber}?text={encodeURIComponent(message)}
 ```
 
-Prefer API `suggestedMessage`; frontend may enrich with address if you collect it in UI notes.
+**Build the message from the order response** (prefer this over the short API `suggestedMessage`, which is only order number + total):
+
+```ts
+function buildWhatsAppMessage(order: {
+  orderNumber: string;
+  subtotal: number;
+  deliveryFee: number;
+  total: number;
+  notes?: string | null;
+  deliveryLine1: string;
+  deliveryLine2?: string | null;
+  deliveryCity: string;
+  deliveryState?: string | null;
+  deliveryLandmark?: string | null;
+  deliveryPhone?: string | null;
+  items: { name: string; quantity: number; lineTotal: number; extras?: { name: string; price: number }[] | null }[];
+}) {
+  const lines = order.items.map((item) => {
+    const extras =
+      Array.isArray(item.extras) && item.extras.length
+        ? ` (+${item.extras.map((e) => e.name).join(', ')})`
+        : '';
+    return `• ${item.quantity}x ${item.name}${extras} — ₦${item.lineTotal}`;
+  });
+
+  const address = [
+    order.deliveryLine1,
+    order.deliveryLine2,
+    order.deliveryCity,
+    order.deliveryState,
+    order.deliveryLandmark ? `Landmark: ${order.deliveryLandmark}` : null,
+    order.deliveryPhone ? `Phone: ${order.deliveryPhone}` : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  return [
+    `Hello JollofPlate! I want to pay for order ${order.orderNumber}.`,
+    '',
+    'Items:',
+    ...lines,
+    '',
+    `Subtotal: ₦${order.subtotal}`,
+    `Delivery: ₦${order.deliveryFee}`,
+    `*Total: ₦${order.total}*`,
+    '',
+    `Deliver to: ${address}`,
+    order.notes ? `Note: ${order.notes}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+const message = buildWhatsAppMessage(order);
+const phone = order.checkout.whatsappNumber; // or GET /settings
+window.open(
+  `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
+  '_blank',
+);
+```
+
+Example of what lands in WhatsApp:
+
+```text
+Hello JollofPlate! I want to pay for order JP-483920.
+
+Items:
+• 2x Smoky Party Jollof (+Extra protein) — ₦9000
+• 1x Fried Plantain — ₦1500
+
+Subtotal: ₦10500
+Delivery: ₦1000
+*Total: ₦11500*
+
+Deliver to: 12 Allen Avenue, Flat 3B, Ikeja, Lagos, Landmark: Near Computer Village gate, Phone: 08012345678
+Note: Extra spicy please
+```
+
+Fallback: if you skip building the list, use API `checkout.suggestedMessage` (short: order number + total only).
 
 7. Show **Order placed** screen:
    - Order number  
    - Status: Pending payment  
    - Buttons: Open WhatsApp again · View order · Back to menu  
+   - “Open WhatsApp again” should rebuild the same message from the stored order (or from `GET /orders/:id` + `GET /settings` for the number)
 
 **Status after create:** `PENDING` until admin marks paid.
 
@@ -298,10 +395,10 @@ Response shape: `{ items, meta }` (same pagination as meals).
 
 **Show**
 
-- Status, items, extras, totals, notes, paidAt (if any)  
+- Status, items, extras, totals, **delivery address**, notes, paidAt (if any)  
 - If `PENDING`:  
   - Remove item → `DELETE /orders/:id/items/:itemId`  
-  - “Pay on WhatsApp” button again  
+  - **Pay on WhatsApp** → rebuild message with `buildWhatsAppMessage(order)` + `GET /settings` for `whatsappNumber`, then open `wa.me` link (same as checkout)  
 - If `PAID` / `CANCELLED`: read-only (no item remove)
 
 **If last pending item removed:** API deletes order → redirect to `/orders` with toast.
@@ -455,9 +552,9 @@ DELETE /admin/orders/:id/items/:itemId
 **List**
 
 - Tabs: All | Pending | Paid | Cancelled  
-- Search by order number, notes, or customer email/name/phone  
+- Search by order number, notes, address, or customer email/name/phone  
 - Pagination (`items` / `meta`)  
-- Show customer name/email/phone, order number, total, date  
+- Show customer name/email/phone, order number, **delivery city**, total, date  
 
 **Detail**
 
@@ -551,7 +648,7 @@ Customer or Admin removes item while PENDING
 |--------|------|----------|
 | Home | — | settings, categories, featured, best-sellers |
 | Menu | — | categories, meals |
-| Meal detail | — | meals/:slug |
+| Meal detail | — | meals/:slug, meals/:slug/related |
 | Cart | — | local |
 | Register / Login | — | auth/register, auth/customer/login |
 | Checkout | Customer | orders POST, settings |
