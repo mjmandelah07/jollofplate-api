@@ -126,17 +126,19 @@ API defaults to **http://localhost:3001**.
 
 ## Keep-alive (Render free tier)
 
-Render free web services sleep after ~15 minutes idle. A GitHub Action pings `GET /health` every **10 minutes**.
+Render free web services sleep after ~15 minutes idle. A GitHub Action in **this API repo** pings every **10 minutes**.
 
-1. Push this repo (workflow: `.github/workflows/keep-alive.yml`).
-2. In GitHub → **Settings → Secrets and variables → Actions → Variables**, add:
+1. Workflow: `.github/workflows/keep-alive.yml` (tries `/health`, then `/`).
+2. GitHub → **Settings → Secrets and variables → Actions → Variables**:
    - Name: `KEEP_ALIVE_URL`
-   - Value: one Render URL, **or several comma-separated** (prod + develop), e.g.  
-     `https://jollofplate-api.onrender.com,https://jollofplate-api-dev.onrender.com`  
+   - Value: comma-separated Render URLs (API + web, prod + develop), e.g.  
+     `https://jollofplate-api.onrender.com,https://jollofplate-web-develop.onrender.com`  
      (no trailing slash)
-3. Run **Actions → Keep Alive → Run workflow** once to verify, or wait for the schedule.
+3. Run **Actions → Keep Alive → Run workflow** once to verify.
 
-Health check locally: `curl http://localhost:3001/health` → `{ "status": "ok" }`.
+No changes needed in the frontend repo — pinging the homepage keeps the Render web service awake.
+
+Health check locally (API): `curl http://localhost:3001/health` → `{ "status": "ok" }`.
 
 ## Product requirements
 
