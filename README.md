@@ -131,7 +131,9 @@ Render free web services sleep after ~15 minutes idle. A GitHub Action pings `GE
 1. Push this repo (workflow: `.github/workflows/keep-alive.yml`).
 2. In GitHub → **Settings → Secrets and variables → Actions → Variables**, add:
    - Name: `KEEP_ALIVE_URL`
-   - Value: your Render base URL (no trailing slash), e.g. `https://jollofplate-api.onrender.com`
+   - Value: one Render URL, **or several comma-separated** (prod + develop), e.g.  
+     `https://jollofplate-api.onrender.com,https://jollofplate-api-dev.onrender.com`  
+     (no trailing slash)
 3. Run **Actions → Keep Alive → Run workflow** once to verify, or wait for the schedule.
 
 Health check locally: `curl http://localhost:3001/health` → `{ "status": "ok" }`.

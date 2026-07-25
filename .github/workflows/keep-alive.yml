@@ -1,6 +1,10 @@
-# Pings the deployed API every 10 minutes so Render free tier stays awake.
-# Set repo variable KEEP_ALIVE_URL (or secret) to your public base URL, e.g.
+# Pings deployed API(s) every 10 minutes so Render free tier stays awake.
+#
+# Set repo variable KEEP_ALIVE_URL to one URL, or several comma-separated:
 #   https://jollofplate-api.onrender.com
+#   https://jollofplate-api.onrender.com,https://jollofplate-api-develop.onrender.com
+#
+# (KEEP_ALIVE_URLS also works as an alias.)
 name: Keep Alive
 
 on:
@@ -12,15 +16,35 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping /health
+      - name: Ping /health on each API
         env:
           KEEP_ALIVE_URL: ${{ vars.KEEP_ALIVE_URL || secrets.KEEP_ALIVE_URL }}
+          KEEP_ALIVE_URLS: ${{ vars.KEEP_ALIVE_URLS || secrets.KEEP_ALIVE_URLS }}
         run: |
-          if [ -z "$KEEP_ALIVE_URL" ]; then
-            echo "Set KEEP_ALIVE_URL as a repo variable or secret (e.g. https://your-app.onrender.com)"
+          RAW="${KEEP_ALIVE_URLS:-$KEEP_ALIVE_URL}"
+          if [ -z "$RAW" ]; then
+            echo "Set KEEP_ALIVE_URL (or KEEP_ALIVE_URLS) as a repo variable."
+            echo "Example: https://api-prod.onrender.com,https://api-dev.onrender.com"
             exit 1
           fi
-          BASE="${KEEP_ALIVE_URL%/}"
-          echo "GET ${BASE}/health"
-          curl -fsS --retry 2 --retry-delay 5 --max-time 30 "${BASE}/health"
-          echo
+
+          FAIL=0
+          IFS=',' read -ra URLS <<< "$RAW"
+          for url in "${URLS[@]}"; do
+            BASE="$(echo "$url" | xargs)"
+            BASE="${BASE%/}"
+            if [ -z "$BASE" ]; then
+              continue
+            fi
+            echo "GET ${BASE}/health"
+            if curl -fsS --retry 2 --retry-delay 5 --max-time 30 "${BASE}/health"; then
+              echo
+              echo "OK ${BASE}"
+            else
+              echo
+              echo "FAIL ${BASE}"
+              FAIL=1
+            fi
+          done
+
+          exit $FAIL

@@ -255,9 +255,39 @@ Response `200`: array of meal objects. No pagination.
 
 ### GET `/meals/:slug` (Public)
 
-Single meal by slug (only if `available`).
+Single meal by slug (only if `available`). Includes a **`share`** object for dynamic Open Graph / Twitter cards when someone shares the meal page.
 
-Response `200`: one meal object (with `category`). Errors: `404` "Meal not found".
+Response `200`:
+
+```json
+{
+  "id": "cmd...",
+  "name": "Smoky Party Jollof",
+  "slug": "smoky-party-jollof",
+  "description": "Firewood-style smoky jollof rice",
+  "price": 3500,
+  "discountPrice": 3000,
+  "images": ["https://res.cloudinary.com/.../smoky.webp"],
+  "category": { "id": "cmd...", "name": "Signature Jollof", "slug": "signature-jollof" },
+  "share": {
+    "title": "Smoky Party Jollof | JollofPlate",
+    "description": "Firewood-style smoky jollof rice",
+    "image": "https://res.cloudinary.com/.../smoky.webp",
+    "url": "https://your-site.com/menu/smoky-party-jollof",
+    "siteName": "JollofPlate",
+    "type": "website"
+  }
+}
+```
+
+| `share` field | Source |
+|---|---|
+| `title` | `{name} \| JollofPlate` |
+| `description` | meal description (≤160 chars), or fallback with category + price |
+| `image` | `images[0]` or `null` |
+| `url` | `{FRONTEND_URL}/menu/{slug}` |
+
+Errors: `404` "Meal not found".
 
 ### GET `/meals/:slug/related` (Public) — You may also like
 
