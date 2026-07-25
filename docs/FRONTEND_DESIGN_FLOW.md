@@ -215,7 +215,15 @@ GET /meals/:slug/related   # You may also like — up to 4
 **On success**
 
 - Save `accessToken` as customer token  
+- `customer.emailVerified` is `false` until they click the email link  
+- Show “Check your email” toast; optional banner until verified  
 - Redirect: intended page (checkout) or `/orders`
+
+**Verify email**
+
+- Route: `/verify-email?token=...`  
+- API: `POST /auth/verify-email` `{ "token": "..." }`  
+- Resend (logged in): `POST /auth/resend-verification`
 
 ---
 

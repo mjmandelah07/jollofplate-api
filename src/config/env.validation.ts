@@ -38,6 +38,19 @@ class EnvironmentVariables {
   CORS_ORIGIN?: string;
 
   @IsOptional()
+  @IsString()
+  FRONTEND_URL?: string;
+
+  @IsOptional()
+  @IsString()
+  RESEND_API_KEY?: string;
+
+  /** e.g. "JollofPlate <hello@yourdomain.com>" — use onboarding@resend.dev for testing */
+  @IsOptional()
+  @IsString()
+  MAIL_FROM?: string;
+
+  @IsOptional()
   @IsInt()
   @Min(1)
   PORT?: number;

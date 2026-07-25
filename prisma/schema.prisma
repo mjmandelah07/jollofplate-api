@@ -31,16 +31,39 @@ model AdminUser {
 }
 
 model Customer {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  firstName    String
-  lastName     String
-  phone        String?
-  role         String   @default("customer")
-  orders       Order[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                 String            @id @default(cuid())
+  email              String            @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  phone              String?
+  role               String            @default("customer")
+  emailVerifiedAt    DateTime?
+  emailVerifyToken   String?           @unique
+  emailVerifyExpires DateTime?
+  orders             Order[]
+  addresses          CustomerAddress[]
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+}
+
+model CustomerAddress {
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  /// Friendly name e.g. "Home", "Office"
+  label      String?
+  line1      String
+  line2      String?
+  city       String
+  state      String?
+  landmark   String?
+  phone      String?
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([customerId])
 }
 
 model Category {

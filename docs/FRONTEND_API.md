@@ -71,8 +71,10 @@ Response `201`:
     "firstName": "Ada",
     "lastName": "Obi",
     "phone": "08012345678",
-    "role": "customer"
-  }
+    "role": "customer",
+    "emailVerified": false
+  },
+  "message": "Registered. Check your email to verify your account."
 }
 ```
 
@@ -86,9 +88,55 @@ Body:
 { "email": "ada@example.com", "password": "secret123" }
 ```
 
-Response `201`: same shape as register (`accessToken` + `customer`).
+Response `201`: same shape as register (`accessToken` + `customer` with `emailVerified`).
 
 Errors: `401` "Invalid email or password".
+
+### POST `/auth/verify-email` — confirm email (Public)
+
+Called when the user lands on `/verify-email?token=...` from the email link.
+
+Body:
+
+```json
+{ "token": "a1b2c3..." }
+```
+
+Response `201`:
+
+```json
+{
+  "message": "Email verified successfully",
+  "customer": {
+    "id": "cmd...",
+    "email": "ada@example.com",
+    "firstName": "Ada",
+    "lastName": "Obi",
+    "phone": "08012345678",
+    "role": "customer",
+    "emailVerified": true
+  }
+}
+```
+
+Errors: `400` invalid/expired token.
+
+### POST `/auth/resend-verification` — resend email (Customer)
+
+Requires customer JWT. Body: none.
+
+Response `201`: `{ "message": "Verification email sent", "customer": { ..., "emailVerified": false } }`
+
+If already verified: `{ "message": "Email already verified", "customer": { ..., "emailVerified": true } }`
+
+**Frontend flow**
+
+1. After register, show “Check your email” banner (`emailVerified: false`).
+2. Page `/verify-email?token=` → `POST /auth/verify-email` with that token → then login or refresh profile.
+3. “Resend” button → `POST /auth/resend-verification`.
+4. Link format: `{FRONTEND_URL}/verify-email?token={token}` (API builds this).
+
+Login/register still work before verification (soft verify). Use `customer.emailVerified` to show a banner; optionally gate checkout later.
 
 ### POST `/auth/login` — admin login (Public)
 
@@ -406,6 +454,72 @@ Errors: `400` "Items can only be removed from pending orders", `403` "Not your o
 
 ---
 
+## 3b. Saved Addresses (Customer token required)
+
+Let signed-in customers save delivery addresses and reuse them at checkout. Copy a saved address into `POST /orders`'s `deliveryAddress` on the frontend (orders still store their own address snapshot).
+
+Address object:
+
+```json
+{
+  "id": "cmd...",
+  "customerId": "cmd...",
+  "label": "Home",
+  "line1": "12 Allen Avenue",
+  "line2": "Flat 3B",
+  "city": "Ikeja",
+  "state": "Lagos",
+  "landmark": "Near Computer Village gate",
+  "phone": "08012345678",
+  "isDefault": true,
+  "createdAt": "2026-07-25T09:00:00.000Z",
+  "updatedAt": "2026-07-25T09:00:00.000Z"
+}
+```
+
+| Method & path | Body / query | Response |
+|---|---|---|
+| GET `/addresses` | `?search=&page=1&limit=20` | `{ items, meta }` — default first, then newest |
+| GET `/addresses/:id` | — | one address |
+| POST `/addresses` | see below | `201` created address |
+| PATCH `/addresses/:id` | any subset of create body | updated address |
+| PATCH `/addresses/:id/default` | — | that address, now `isDefault: true` |
+| DELETE `/addresses/:id` | — | `{ "message": "Address deleted" }` |
+
+Create body (`line1` + `city` required):
+
+```json
+{
+  "label": "Home",
+  "line1": "12 Allen Avenue",
+  "line2": "Flat 3B",
+  "city": "Ikeja",
+  "state": "Lagos",
+  "landmark": "Near Computer Village gate",
+  "phone": "08012345678",
+  "isDefault": true
+}
+```
+
+List response `200`:
+
+```json
+{
+  "items": [ /* address objects */ ],
+  "meta": { "total": 3, "page": 1, "limit": 20, "totalPages": 1 }
+}
+```
+
+`search` matches `label`, `line1`, `line2`, `city`, `state`, `landmark`, `phone`.
+
+Rules:
+- First saved address is automatically the default.
+- Setting `isDefault: true` (on create, update, or the `/default` route) clears the flag on other addresses — only one default at a time.
+- Deleting the default promotes the most recent remaining address to default.
+- All routes are scoped to the logged-in customer; another customer's id returns `404`.
+
+---
+
 ## 4. Admin — Categories (Admin token)
 
 Category object (admin list adds `_count.meals`):
@@ -639,6 +753,8 @@ Response `200`:
 | `/auth/register` | POST | Public |
 | `/auth/customer/login` | POST | Public |
 | `/auth/login` | POST | Public |
+| `/auth/verify-email` | POST | Public |
+| `/auth/resend-verification` | POST | Customer |
 | `/categories` | GET | Public |
 | `/meals` | GET | Public |
 | `/meals/featured` | GET | Public |
@@ -649,6 +765,7 @@ Response `200`:
 | `/orders` | POST, GET | Customer |
 | `/orders/:id` | GET | Customer |
 | `/orders/:id/items/:itemId` | DELETE | Customer |
+| `/addresses` (+`/:id`, `/:id/default`) | GET, POST, PATCH, DELETE | Customer |
 | `/admin/categories` (+`/:id`, `/reorder`) | GET, POST, PATCH, DELETE | Admin |
 | `/admin/meals` (+`/:id`) | GET, POST, PATCH, DELETE | Admin |
 | `/admin/orders` (+`/:id`, `/:id/status`, `/:id/items/:itemId`) | GET, PATCH, DELETE | Admin |
