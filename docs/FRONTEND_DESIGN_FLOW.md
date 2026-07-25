@@ -23,6 +23,7 @@ src/app/
     checkout/page.tsx        # Create order + WhatsApp
     orders/page.tsx          # My orders (customer JWT)
     orders/[id]/page.tsx     # Order detail
+    account/page.tsx         # Customer profile, password, saved addresses
     login/page.tsx           # Customer login
     register/page.tsx        # Customer register
     about/page.tsx           # optional
@@ -155,6 +156,55 @@ GET /meals/:slug/related   # You may also like — up to 4
 - Primary CTA: **Add to cart**
 - Secondary: Back to menu
 - **You may also like** — horizontal cards from `/related` (same category first; fills with featured/best-sellers if needed)
+- **Share / SEO** — use `meal.share` from `GET /meals/:slug` for dynamic social previews (WhatsApp, Twitter, Facebook, iMessage)
+
+**SEO metadata (Next.js App Router)** — `app/menu/[slug]/page.tsx` or `layout.tsx`:
+
+```ts
+// app/menu/[slug]/page.tsx
+import type { Metadata } from 'next';
+
+const API = process.env.NEXT_PUBLIC_API_URL!;
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const meal = await fetch(`${API}/meals/${slug}`, { next: { revalidate: 60 } })
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+
+  if (!meal?.share) {
+    return { title: 'Menu | JollofPlate' };
+  }
+
+  const { title, description, image, url, siteName } = meal.share;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url,
+      siteName,
+      type: 'website',
+      images: image ? [{ url: image, alt: meal.name }] : [],
+    },
+    twitter: {
+      card: image ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      images: image ? [image] : [],
+    },
+    alternates: { canonical: url },
+  };
+}
+```
+
+WhatsApp / iMessage / Facebook read these tags when the link is shared — so each meal link shows **that meal’s name, description, and image**.
 
 **Cart line item shape (client)**
 
@@ -237,6 +287,38 @@ GET /meals/:slug/related   # You may also like — up to 4
 ```
 
 **Do not** use `POST /auth/login` here — that is **admin only**.
+
+---
+
+### 2.2b Profile & password
+
+**Route:** `/account`  
+**Auth:** customer JWT
+
+**APIs**
+
+```text
+GET   /account/profile
+PATCH /account/profile
+PATCH /account/password
+```
+
+**Profile form**
+
+- First name
+- Last name
+- Phone (optional)
+- Email (read-only; show verified/unverified badge)
+- Save sends only changed fields to `PATCH /account/profile`
+
+**Password form**
+
+- Current password
+- New password (minimum 6 characters)
+- Confirm new password (frontend-only validation)
+- Submit `currentPassword` + `newPassword` to `PATCH /account/password`
+
+After a successful password update, show a confirmation toast. The current JWT remains valid.
 
 ---
 

@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { slugify } from '../common/utils/slugify';
@@ -12,7 +13,10 @@ import { QueryMealsDto } from './dto/query-meals.dto';
 
 @Injectable()
 export class MealsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   async findPublic(query: QueryMealsDto) {
     const page = query.page ?? 1;
@@ -66,16 +70,11 @@ export class MealsService {
   }
 
   async findBySlug(slug: string) {
-    const meal = await this.prisma.meal.findFirst({
-      where: { slug, available: true },
-      include: {
-        category: { select: { id: true, name: true, slug: true } },
-      },
-    });
-    if (!meal) {
-      throw new NotFoundException('Meal not found');
-    }
-    return meal;
+    const meal = await this.getAvailableBySlug(slug);
+    return {
+      ...meal,
+      share: this.buildShareMeta(meal),
+    };
   }
 
   /**
@@ -84,7 +83,7 @@ export class MealsService {
    * featured / best-sellers if the category is thin.
    */
   async findRelated(slug: string) {
-    const meal = await this.findBySlug(slug);
+    const meal = await this.getAvailableBySlug(slug);
     const limit = 4;
     const include = {
       category: { select: { id: true, name: true, slug: true } },
@@ -126,6 +125,52 @@ export class MealsService {
     });
 
     return [...sameCategory, ...fill];
+  }
+
+  private async getAvailableBySlug(slug: string) {
+    const meal = await this.prisma.meal.findFirst({
+      where: { slug, available: true },
+      include: {
+        category: { select: { id: true, name: true, slug: true } },
+      },
+    });
+    if (!meal) {
+      throw new NotFoundException('Meal not found');
+    }
+    return meal;
+  }
+
+  /** Open Graph / Twitter share fields for the meal detail page */
+  private buildShareMeta(meal: {
+    name: string;
+    slug: string;
+    description: string;
+    images: string[];
+    price: number;
+    discountPrice: number | null;
+    category: { name: string } | null;
+  }) {
+    const frontendUrl = (
+      this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000'
+    ).replace(/\/$/, '');
+
+    const price = meal.discountPrice ?? meal.price;
+    const rawDescription = meal.description?.trim() || '';
+    const description =
+      rawDescription ||
+      `${meal.name} from ${meal.category?.name ?? 'JollofPlate'} — from ₦${price}. Order on JollofPlate.`;
+
+    return {
+      title: `${meal.name} | JollofPlate`,
+      description:
+        description.length > 160
+          ? `${description.slice(0, 157).trimEnd()}...`
+          : description,
+      image: meal.images[0] ?? null,
+      url: `${frontendUrl}/menu/${meal.slug}`,
+      siteName: 'JollofPlate',
+      type: 'website' as const,
+    };
   }
 
   findAllAdmin() {

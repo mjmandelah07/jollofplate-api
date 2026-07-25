@@ -255,9 +255,39 @@ Response `200`: array of meal objects. No pagination.
 
 ### GET `/meals/:slug` (Public)
 
-Single meal by slug (only if `available`).
+Single meal by slug (only if `available`). Includes a **`share`** object for dynamic Open Graph / Twitter cards when someone shares the meal page.
 
-Response `200`: one meal object (with `category`). Errors: `404` "Meal not found".
+Response `200`:
+
+```json
+{
+  "id": "cmd...",
+  "name": "Smoky Party Jollof",
+  "slug": "smoky-party-jollof",
+  "description": "Firewood-style smoky jollof rice",
+  "price": 3500,
+  "discountPrice": 3000,
+  "images": ["https://res.cloudinary.com/.../smoky.webp"],
+  "category": { "id": "cmd...", "name": "Signature Jollof", "slug": "signature-jollof" },
+  "share": {
+    "title": "Smoky Party Jollof | JollofPlate",
+    "description": "Firewood-style smoky jollof rice",
+    "image": "https://res.cloudinary.com/.../smoky.webp",
+    "url": "https://your-site.com/menu/smoky-party-jollof",
+    "siteName": "JollofPlate",
+    "type": "website"
+  }
+}
+```
+
+| `share` field | Source |
+|---|---|
+| `title` | `{name} \| JollofPlate` |
+| `description` | meal description (≤160 chars), or fallback with category + price |
+| `image` | `images[0]` or `null` |
+| `url` | `{FRONTEND_URL}/menu/{slug}` |
+
+Errors: `404` "Meal not found".
 
 ### GET `/meals/:slug/related` (Public) — You may also like
 
@@ -451,6 +481,58 @@ Response `200` (it was the last item — whole order is deleted):
 Check for `deleted: true` to know the order is gone.
 
 Errors: `400` "Items can only be removed from pending orders", `403` "Not your order", `404` order/item not found.
+
+---
+
+## 3a. Customer Account (Customer token required)
+
+### GET `/account/profile`
+
+Returns the authenticated customer's safe profile (never returns `passwordHash`):
+
+```json
+{
+  "id": "cmd...",
+  "email": "ada@example.com",
+  "firstName": "Ada",
+  "lastName": "Obi",
+  "phone": "08012345678",
+  "role": "customer",
+  "emailVerified": true,
+  "createdAt": "2026-07-25T09:00:00.000Z",
+  "updatedAt": "2026-07-25T09:00:00.000Z"
+}
+```
+
+### PATCH `/account/profile`
+
+All fields are optional. Send only changed fields:
+
+```json
+{
+  "firstName": "Adanna",
+  "lastName": "Obi",
+  "phone": "08087654321"
+}
+```
+
+Response `200`: `{ "message": "Profile updated", "customer": { ... } }`.
+Send `phone: ""` to clear the phone. Email is not editable here because changing it requires a separate re-verification flow.
+
+### PATCH `/account/password`
+
+```json
+{
+  "currentPassword": "secret123",
+  "newPassword": "new-secret456"
+}
+```
+
+Both passwords require at least 6 characters. The new password must differ from the current password.
+
+Response `200`: `{ "message": "Password updated successfully" }`.
+
+Errors: `400` for an incorrect current password or a reused password; `401` for an invalid customer session.
 
 ---
 
@@ -765,6 +847,8 @@ Response `200`:
 | `/orders` | POST, GET | Customer |
 | `/orders/:id` | GET | Customer |
 | `/orders/:id/items/:itemId` | DELETE | Customer |
+| `/account/profile` | GET, PATCH | Customer |
+| `/account/password` | PATCH | Customer |
 | `/addresses` (+`/:id`, `/:id/default`) | GET, POST, PATCH, DELETE | Customer |
 | `/admin/categories` (+`/:id`, `/reorder`) | GET, POST, PATCH, DELETE | Admin |
 | `/admin/meals` (+`/:id`) | GET, POST, PATCH, DELETE | Admin |
