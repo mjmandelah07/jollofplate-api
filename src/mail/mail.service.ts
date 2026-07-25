@@ -1,18 +1,28 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Resend } from 'resend';
+import * as nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private readonly resend: Resend | null;
+  private readonly transporter: Transporter | null;
 
   constructor(private readonly config: ConfigService) {
-    const apiKey = this.config.get<string>('RESEND_API_KEY');
-    this.resend = apiKey ? new Resend(apiKey) : null;
-    if (!this.resend) {
+    const user = this.config.get<string>('SMTP_USER');
+    const pass = this.config.get<string>('SMTP_PASS');
+
+    if (user && pass) {
+      this.transporter = nodemailer.createTransport({
+        host: this.config.get<string>('SMTP_HOST') ?? 'smtp.gmail.com',
+        port: Number(this.config.get<string>('SMTP_PORT') ?? 587),
+        secure: false,
+        auth: { user, pass },
+      });
+    } else {
+      this.transporter = null;
       this.logger.warn(
-        'RESEND_API_KEY not set — verification emails will be logged only',
+        'SMTP_USER / SMTP_PASS not set — verification emails will be logged only',
       );
     }
   }
@@ -49,27 +59,30 @@ export class MailService {
     html: string;
     text: string;
   }) {
+    const smtpUser = this.config.get<string>('SMTP_USER');
     const from =
       this.config.get<string>('MAIL_FROM') ??
-      'JollofPlate <onboarding@resend.dev>';
+      (smtpUser ? `JollofPlate <${smtpUser}>` : 'JollofPlate <noreply@localhost>');
 
-    if (!this.resend) {
+    if (!this.transporter) {
       this.logger.log(
         `[dev mail] To: ${params.to} | Subject: ${params.subject}\n${params.text}`,
       );
       return;
     }
 
-    const { error } = await this.resend.emails.send({
-      from,
-      to: params.to,
-      subject: params.subject,
-      html: params.html,
-      text: params.text,
-    });
-
-    if (error) {
-      this.logger.error(`Failed to send email to ${params.to}: ${error.message}`);
+    try {
+      await this.transporter.sendMail({
+        from,
+        to: params.to,
+        subject: params.subject,
+        html: params.html,
+        text: params.text,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown mail error';
+      this.logger.error(`Failed to send email to ${params.to}: ${message}`);
       throw error;
     }
   }

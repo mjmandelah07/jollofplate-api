@@ -97,8 +97,11 @@ CLOUDINARY_API_SECRET=
 PORT=3001
 CORS_ORIGIN=http://localhost:3000
 FRONTEND_URL=http://localhost:3000
-RESEND_API_KEY=          # free at https://resend.com — leave empty to log links in console
-MAIL_FROM=JollofPlate <onboarding@resend.dev>
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=               # your Gmail address
+SMTP_PASS=               # Google App Password (not normal password)
+MAIL_FROM=JollofPlate <your-gmail@gmail.com>
 ```
 
 ## Getting started

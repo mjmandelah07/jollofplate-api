@@ -41,11 +41,24 @@ class EnvironmentVariables {
   @IsString()
   FRONTEND_URL?: string;
 
+  /** Gmail / SMTP — use a Google App Password, not your normal Gmail password */
   @IsOptional()
   @IsString()
-  RESEND_API_KEY?: string;
+  SMTP_HOST?: string;
 
-  /** e.g. "JollofPlate <hello@yourdomain.com>" — use onboarding@resend.dev for testing */
+  @IsOptional()
+  @IsString()
+  SMTP_PORT?: string;
+
+  @IsOptional()
+  @IsString()
+  SMTP_USER?: string;
+
+  @IsOptional()
+  @IsString()
+  SMTP_PASS?: string;
+
+  /** e.g. "JollofPlate <jollofplate@gmail.com>" — must match SMTP_USER for Gmail */
   @IsOptional()
   @IsString()
   MAIL_FROM?: string;
