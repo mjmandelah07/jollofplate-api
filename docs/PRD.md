@@ -225,6 +225,34 @@ Orders are stored so customers can track them and admins can confirm payment man
 - No item edits after `PAID` or `CANCELLED`
 - No Paystack / card verification in this version
 
+### 4.6 Custom shopping (sourcing / stock the house)
+
+Separate from the priced menu cart. Customers pick from a **no-price catalog** and/or type custom items, submit a request, then discuss price on WhatsApp. Target fulfilment ~24 hours (ops promise, not enforced in API).
+
+**Sourcing item (admin catalog)**
+
+| Field | Notes |
+|-------|--------|
+| name, slug | slug auto from name |
+| description, image, unitHint | optional (`unitHint` e.g. bag / carton) |
+| available, sortOrder | public list = available only |
+
+**Sourcing request**
+
+- `requestNumber` e.g. `JS-483920`
+- status: `PENDING` \| `CANCELLED` \| `COMPLETED`
+- delivery address (same shape as menu orders)
+- notes?
+- items: either `sourcingItemId` (snapshot name) **or** custom `name`; `quantity` optional; per-line `notes` optional
+- **No prices / totals** on the API
+
+**Rules**
+
+- Custom shopping list/cart on the frontend must **not** share state with the menu cart
+- Create request returns WhatsApp `checkout.suggestedMessage` (quote request, not pay amount)
+- Customer may cancel while `PENDING`
+- Admin updates status only
+
 ## 5. Suggested API surface
 
 Exact paths can follow NestJS conventions; keep REST + JSON.
@@ -238,6 +266,7 @@ GET  /meals/:slug
 GET  /meals/featured
 GET  /meals/best-sellers
 GET  /settings
+GET  /sourcing-items
 ```
 
 Query params for `GET /meals`: `category`, `search`, `page`, `limit`.
@@ -256,6 +285,10 @@ POST /auth/customer/login     # customer
 GET|POST              /orders
 GET                   /orders/:id
 DELETE                /orders/:id/items/:itemId   # pending only
+
+GET|POST              /sourcing-requests
+GET                   /sourcing-requests/:id
+PATCH                 /sourcing-requests/:id/cancel
 ```
 
 ### Admin (JWT, role=admin)
@@ -275,6 +308,14 @@ GET             /admin/orders
 GET             /admin/orders/:id
 PATCH           /admin/orders/:id/status          # paid | cancelled
 DELETE          /admin/orders/:id/items/:itemId   # pending only
+
+GET|POST        /admin/sourcing-items
+GET|PATCH|DELETE /admin/sourcing-items/:id
+PATCH           /admin/sourcing-items/reorder
+
+GET             /admin/sourcing-requests
+GET             /admin/sourcing-requests/:id
+PATCH           /admin/sourcing-requests/:id/status
 ```
 
 ## 6. Non-functional requirements
@@ -320,6 +361,7 @@ Do **not** implement unless explicitly requested:
 - [x] CORS + env validation
 - [x] Customer auth (register + login)
 - [x] Orders module (create, list, remove pending items, admin mark paid)
+- [x] Custom shopping / sourcing (catalog + requests + WhatsApp quote)
 - [ ] Deploy to Render with Supabase Postgres
 
 ## 10. Success criteria

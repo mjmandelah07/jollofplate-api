@@ -346,6 +346,85 @@ Response `200`:
 
 ---
 
+## 3b. Custom shopping / sourcing (separate from menu cart)
+
+House-stock / “we’ll source it” flow. **No prices online.** Frontend should keep a **separate list** (e.g. `sourcingCart`) — never merge with the meal cart.
+
+### GET `/sourcing-items` — public catalog (Public)
+
+Query: `?search=&page=1&limit=50`
+
+Response `200`: `{ "items": [...], "meta": { total, page, limit, totalPages } }`
+
+Each item:
+
+```json
+{
+  "id": "cmd...",
+  "name": "Indomie carton",
+  "slug": "indomie-carton",
+  "description": "We can source common pantry staples",
+  "image": null,
+  "unitHint": "carton",
+  "available": true,
+  "sortOrder": 0
+}
+```
+
+No `price` field.
+
+### POST `/sourcing-requests` — submit request (Customer)
+
+Body:
+
+```json
+{
+  "items": [
+    { "sourcingItemId": "cmd...", "quantity": 2 },
+    { "sourcingItemId": "cmd..." },
+    { "name": "Golden Penny semolina 10kg", "quantity": 1, "notes": "any brand OK" }
+  ],
+  "deliveryAddress": {
+    "line1": "12 Allen Avenue",
+    "line2": "Flat 3B",
+    "city": "Ikeja",
+    "state": "Lagos",
+    "landmark": "Near Computer Village",
+    "phone": "08012345678"
+  },
+  "notes": "Please deliver within 24 hours if possible"
+}
+```
+
+| Field | Required | Notes |
+|-------|----------|--------|
+| `items` | yes | min 1; each line needs `sourcingItemId` **or** custom `name` |
+| `items[].quantity` | no | if set, min 1 |
+| `items[].notes` | no | per-line note |
+| `deliveryAddress` | yes | same shape as menu orders |
+| `notes` | no | whole-request note |
+
+Response `201` includes `requestNumber` (`JS-…`), `status: "PENDING"`, `items`, and:
+
+```json
+"checkout": {
+  "whatsappNumber": "2348000000000",
+  "suggestedMessage": "Hello JollofPlate! Custom shopping request JS-483920.\nPlease quote prices — I need these sourced (aim ~24 hours):\n- Indomie carton x2\n..."
+}
+```
+
+Open WhatsApp the same way as menu checkout (no payment amount — quote discussion).
+
+### GET `/sourcing-requests` — my requests (Customer)
+
+Query: `?search=&status=PENDING|CANCELLED|COMPLETED&page=1&limit=20` → `{ items, meta }`
+
+### GET `/sourcing-requests/:id` — one request (Customer)
+
+### PATCH `/sourcing-requests/:id/cancel` — cancel while pending (Customer)
+
+---
+
 ## 3. Orders (Customer token required)
 
 ### POST `/orders` — checkout (Customer)
@@ -808,6 +887,32 @@ Errors: `400` missing file / wrong type, `503` Cloudinary not configured.
 
 ---
 
+## 8b. Admin — Custom shopping catalog & requests
+
+### Sourcing items
+
+| Method | Path | Notes |
+|--------|------|--------|
+| GET | `/admin/sourcing-items` | paged `?search=&page=&limit=` |
+| GET | `/admin/sourcing-items/all` | full list for reorder UI |
+| GET | `/admin/sourcing-items/:id` | one item |
+| POST | `/admin/sourcing-items` | `{ name, description?, image?, unitHint?, available? }` |
+| PATCH | `/admin/sourcing-items/reorder` | `{ "ids": ["...", "..."] }` |
+| PATCH | `/admin/sourcing-items/:id` | partial update |
+| DELETE | `/admin/sourcing-items/:id` | hard delete |
+
+### Sourcing requests
+
+| Method | Path | Notes |
+|--------|------|--------|
+| GET | `/admin/sourcing-requests` | `?search=&status=&page=&limit=` — includes `customer` |
+| GET | `/admin/sourcing-requests/:id` | one request + customer |
+| PATCH | `/admin/sourcing-requests/:id/status` | `{ "status": "PENDING" \| "CANCELLED" \| "COMPLETED" }` |
+
+No prices on these objects — quoting stays on WhatsApp.
+
+---
+
 ## 9. Admin — Stats (Admin token)
 
 ### GET `/admin/stats`
@@ -856,3 +961,9 @@ Response `200`:
 | `/admin/settings` | GET, PATCH | Admin |
 | `/admin/uploads` | POST | Admin |
 | `/admin/stats` | GET | Admin |
+| `/sourcing-items` | GET | Public |
+| `/sourcing-requests` | POST, GET | Customer |
+| `/sourcing-requests/:id` | GET | Customer |
+| `/sourcing-requests/:id/cancel` | PATCH | Customer |
+| `/admin/sourcing-items` (+`/:id`, `/reorder`, `/all`) | GET, POST, PATCH, DELETE | Admin |
+| `/admin/sourcing-requests` (+`/:id`, `/:id/status`) | GET, PATCH | Admin |

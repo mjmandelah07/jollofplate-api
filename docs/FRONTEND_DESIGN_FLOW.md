@@ -19,10 +19,14 @@ src/app/
     page.tsx                 # Home
     menu/page.tsx            # Menu / categories
     menu/[slug]/page.tsx     # Meal detail
-    cart/page.tsx            # Cart
-    checkout/page.tsx        # Create order + WhatsApp
-    orders/page.tsx          # My orders (customer JWT)
-    orders/[id]/page.tsx     # Order detail
+    cart/page.tsx            # Menu cart (meals only)
+    checkout/page.tsx        # Create meal order + WhatsApp
+    custom-shopping/page.tsx # Sourcing catalog + list (separate from menu cart)
+    custom-shopping/checkout/page.tsx  # Submit sourcing request + WhatsApp quote
+    orders/page.tsx          # My meal orders
+    orders/[id]/page.tsx
+    sourcing-requests/page.tsx       # My custom shopping requests
+    sourcing-requests/[id]/page.tsx
     account/page.tsx         # Customer profile, password, saved addresses
     login/page.tsx           # Customer login
     register/page.tsx        # Customer register
@@ -37,6 +41,8 @@ src/app/
     meals/[id]/page.tsx
     orders/page.tsx
     orders/[id]/page.tsx
+    sourcing-items/page.tsx
+    sourcing-requests/page.tsx
     settings/page.tsx
     uploads/ (optional gallery helper)
 ```
@@ -240,8 +246,35 @@ WhatsApp / iMessage / Facebook read these tags when the link is shared — so ea
 
 **Rules**
 
-- Guest can fill cart without login  
+- Guest can fill cart without login
 - Checkout requires **customer login** (orders are account-bound)
+
+---
+
+### 1.6 Custom shopping (sourcing — separate cart)
+
+**Routes:** `/custom-shopping` → `/custom-shopping/checkout`  
+**State:** dedicated store (e.g. `sourcingCart`) — **never** share with meal `cart`.
+
+**Goal:** Customer builds a list of items to stock the house. No prices. You quote and confirm on WhatsApp; aim ~24h delivery.
+
+**Browse (`/custom-shopping`)**
+
+- Load `GET /sourcing-items`
+- Show name, description, optional image / unit hint — **no price**
+- Add from catalog (quantity optional)
+- “Can’t find it?” → free-text name (+ optional qty / note)
+- CTA: **Review list** → checkout
+
+**Checkout (`/custom-shopping/checkout`)**
+
+- Requires customer JWT
+- Delivery address (reuse saved addresses)
+- Optional overall notes (“within 24 hours”)
+- `POST /sourcing-requests` → open WhatsApp with `checkout.suggestedMessage`
+- Copy: “We’ll confirm availability and price on WhatsApp”
+
+**My requests:** `/sourcing-requests` + detail; cancel while pending via `PATCH .../cancel`
 
 ---
 

@@ -68,16 +68,18 @@ export class AuthService {
       data: {
         email,
         passwordHash,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        phone: dto.phone,
+        firstName: dto.firstName.trim(),
+        lastName: dto.lastName.trim(),
+        phone: dto.phone?.trim() || null,
         role: 'customer',
         emailVerifyToken: token,
         emailVerifyExpires: expires,
       },
     });
 
-    await this.sendVerificationEmailSafe(customer);
+    // Don't block the HTTP response on SMTP — slow Gmail/cold starts timed out the frontend
+    // even though the account was already created.
+    void this.sendVerificationEmailSafe(customer);
 
     return {
       accessToken: await this.signToken(customer.id, customer.email, 'customer'),
@@ -166,7 +168,7 @@ export class AuthService {
     }
 
     const { token, expires } = this.createVerifyToken();
-    const updated = await this.prisma.customer.update({
+    await this.prisma.customer.update({
       where: { id: customer.id },
       data: {
         emailVerifyToken: token,
@@ -174,7 +176,13 @@ export class AuthService {
       },
     });
 
-    await this.sendVerificationEmailSafe(updated);
+    const updated = {
+      ...customer,
+      emailVerifyToken: token,
+      emailVerifyExpires: expires,
+    };
+
+    void this.sendVerificationEmailSafe(updated);
 
     return {
       message: 'Verification email sent',

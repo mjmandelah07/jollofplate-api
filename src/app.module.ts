@@ -11,6 +11,7 @@ import { StatsModule } from './stats/stats.module';
 import { OrdersModule } from './orders/orders.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { AccountModule } from './account/account.module';
+import { SourcingModule } from './sourcing/sourcing.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -30,6 +31,7 @@ import { AppService } from './app.service';
     OrdersModule,
     AddressesModule,
     AccountModule,
+    SourcingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
