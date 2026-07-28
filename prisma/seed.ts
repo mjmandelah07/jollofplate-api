@@ -3,6 +3,11 @@ import * as bcrypt from 'bcrypt';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { CategoryStatus, PrismaClient } from '../src/generated/prisma/client';
 
+/**
+ * Idempotent bootstrap seed.
+ * Safe to re-run: creates missing admin / settings / sample catalog only.
+ * Never overwrites restaurant settings or admin password you already changed.
+ */
 async function main() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
@@ -13,86 +18,107 @@ async function main() {
     adapter: new PrismaPg({ connectionString }),
   });
 
-  const email = (process.env.ADMIN_EMAIL ?? 'admin@jollofplate.com').toLowerCase();
+  const email = (
+    process.env.ADMIN_EMAIL ?? 'admin@jollofplate.com'
+  ).toLowerCase();
   const password = process.env.ADMIN_PASSWORD ?? 'ChangeMe123!';
   const firstName = process.env.ADMIN_FIRST_NAME ?? 'Mojisola';
   const lastName = process.env.ADMIN_LAST_NAME ?? 'Aramide';
-  const passwordHash = await bcrypt.hash(password, 10);
 
-  const admin = await prisma.adminUser.upsert({
-    where: { email },
-    update: { firstName, lastName, passwordHash },
-    create: { email, firstName, lastName, passwordHash, role: 'admin' },
-  });
+  let admin = await prisma.adminUser.findUnique({ where: { email } });
+  if (!admin) {
+    const passwordHash = await bcrypt.hash(password, 10);
+    admin = await prisma.adminUser.create({
+      data: {
+        email,
+        firstName,
+        lastName,
+        passwordHash,
+        role: 'admin',
+      },
+    });
+    console.log(`  Created admin: ${admin.email}`);
+  } else {
+    console.log(`  Admin already exists (left unchanged): ${admin.email}`);
+  }
 
-  await prisma.restaurantSettings.deleteMany();
-  const settings = await prisma.restaurantSettings.create({
-    data: {
-      restaurantName: 'JollofPlate',
-      whatsappNumber: '2348012345678',
-      contactNumber: '2348012345678',
-      email: 'hello@jollofplate.com',
-      address: 'Lagos, Nigeria',
-      deliveryFee: 1500,
-      businessHours: {
-        timezone: 'Africa/Lagos',
-        week: [
-          {
-            day: 'monday',
-            label: 'Monday',
-            open: '10:00',
-            close: '21:00',
-            closed: false,
-          },
-          {
-            day: 'tuesday',
-            label: 'Tuesday',
-            open: '10:00',
-            close: '21:00',
-            closed: false,
-          },
-          {
-            day: 'wednesday',
-            label: 'Wednesday',
-            open: '10:00',
-            close: '21:00',
-            closed: false,
-          },
-          {
-            day: 'thursday',
-            label: 'Thursday',
-            open: '10:00',
-            close: '21:00',
-            closed: false,
-          },
-          {
-            day: 'friday',
-            label: 'Friday',
-            open: '10:00',
-            close: '22:00',
-            closed: false,
-          },
-          {
-            day: 'saturday',
-            label: 'Saturday',
-            open: '11:00',
-            close: '22:00',
-            closed: false,
-          },
-          {
-            day: 'sunday',
-            label: 'Sunday',
-            open: '12:00',
-            close: '20:00',
-            closed: false,
-          },
-        ],
-      },
-      socialLinks: {
-        instagram: 'https://instagram.com/jollofplate',
-      },
-    },
+  let settings = await prisma.restaurantSettings.findFirst({
+    orderBy: { createdAt: 'asc' },
   });
+  if (!settings) {
+    settings = await prisma.restaurantSettings.create({
+      data: {
+        restaurantName: 'JollofPlate',
+        whatsappNumber: '2348012345678',
+        contactNumber: '2348012345678',
+        email: 'hello@jollofplate.com',
+        address: 'Lagos, Nigeria',
+        deliveryFee: 1500,
+        businessHours: {
+          timezone: 'Africa/Lagos',
+          week: [
+            {
+              day: 'monday',
+              label: 'Monday',
+              open: '10:00',
+              close: '21:00',
+              closed: false,
+            },
+            {
+              day: 'tuesday',
+              label: 'Tuesday',
+              open: '10:00',
+              close: '21:00',
+              closed: false,
+            },
+            {
+              day: 'wednesday',
+              label: 'Wednesday',
+              open: '10:00',
+              close: '21:00',
+              closed: false,
+            },
+            {
+              day: 'thursday',
+              label: 'Thursday',
+              open: '10:00',
+              close: '21:00',
+              closed: false,
+            },
+            {
+              day: 'friday',
+              label: 'Friday',
+              open: '10:00',
+              close: '22:00',
+              closed: false,
+            },
+            {
+              day: 'saturday',
+              label: 'Saturday',
+              open: '11:00',
+              close: '22:00',
+              closed: false,
+            },
+            {
+              day: 'sunday',
+              label: 'Sunday',
+              open: '12:00',
+              close: '20:00',
+              closed: false,
+            },
+          ],
+        },
+        socialLinks: {
+          instagram: 'https://instagram.com/jollofplate',
+        },
+      },
+    });
+    console.log('  Created restaurant settings (defaults)');
+  } else {
+    console.log(
+      `  Settings already exist (left unchanged): ${settings.restaurantName}`,
+    );
+  }
 
   const classics = await prisma.category.upsert({
     where: { slug: 'classics' },
@@ -157,7 +183,7 @@ async function main() {
     },
   });
 
-  console.log('Seed complete:');
+  console.log('Seed complete (idempotent — existing data kept):');
   console.log(`  Admin: ${admin.email}`);
   console.log(`  Settings: ${settings.restaurantName}`);
   console.log(`  Categories: ${classics.slug}, ${sides.slug}`);

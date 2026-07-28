@@ -97,8 +97,12 @@ CLOUDINARY_API_SECRET=
 PORT=3001
 CORS_ORIGIN=http://localhost:3000
 FRONTEND_URL=http://localhost:3000
-RESEND_API_KEY=          # free at https://resend.com — leave empty to log links in console
-MAIL_FROM=JollofPlate <onboarding@resend.dev>
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=               # your Gmail address
+SMTP_PASS=               # Google App Password (not normal password)
+MAIL_FROM=JollofPlate <your-gmail@gmail.com>
 ```
 
 ## Getting started
@@ -121,24 +125,22 @@ API defaults to **http://localhost:3001**.
 |--------|---------|
 | `npm run start:dev` | Nest watch mode |
 | `npm run prisma:migrate` | Create/apply migrations |
-| `npm run prisma:seed` | Seed admin + sample menu |
+| `npm run prisma:seed` | Bootstrap admin + defaults (idempotent — won’t overwrite settings you edited) |
 | `npm run build` | Production build |
 
 ## Keep-alive (Render free tier)
 
-Render free web services sleep after ~15 minutes idle. A GitHub Action in **this API repo** pings every **10 minutes**.
+Render free services sleep after ~15 minutes idle. A **GitHub Action** pings every **5 minutes** (external wake-up).
 
-1. Workflow: `.github/workflows/keep-alive.yml` (tries `/health`, then `/`).
+1. Workflow: `.github/workflows/keep-alive.yml` (tries `/health`, then `/` per URL).
 2. GitHub → **Settings → Secrets and variables → Actions → Variables**:
    - Name: `KEEP_ALIVE_URL`
    - Value: comma-separated Render URLs (API + web, prod + develop), e.g.  
-     `https://jollofplate-api.onrender.com,https://jollofplate-web-develop.onrender.com`  
-     (no trailing slash)
-3. Run **Actions → Keep Alive → Run workflow** once to verify.
+     `https://jollofplate-api.onrender.com,https://jollofplate-web-develop.onrender.com`
+3. Merge the workflow to **master** (scheduled jobs run from the default branch).
+4. Run **Actions → Keep Alive → Run workflow** once to verify.
 
-No changes needed in the frontend repo — pinging the homepage keeps the Render web service awake.
-
-Health check locally (API): `curl http://localhost:3001/health` → `{ "status": "ok" }`.
+Health check: `curl https://your-api.onrender.com/health` → `{ "status": "ok" }`.
 
 ## Product requirements
 

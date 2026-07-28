@@ -1,16 +1,17 @@
-# Pings deployed service(s) every 10 minutes so Render free tier stays awake.
+# Pings deployed service(s) every 5 minutes so Render free tier stays awake.
 #
-# Set repo variable KEEP_ALIVE_URL to one URL, or several comma-separated
-# (API + web, prod + develop), e.g.:
+# Set repo variable KEEP_ALIVE_URL (or KEEP_ALIVE_URLS) to one URL, or several
+# comma-separated (API + web, prod + develop), e.g.:
 #   https://jollofplate-api.onrender.com,https://jollofplate-web-develop.onrender.com
 #
 # Tries /health first, then falls back to / (so Next.js sites work without a health route).
-# (KEEP_ALIVE_URLS also works as an alias.)
 name: Keep Alive
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    # Every 5 minutes — Render free tier sleeps after ~15m idle.
+    # Note: GitHub cron can be delayed; still better for waking cold services.
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -42,7 +43,7 @@ jobs:
             for PATH_SUFFIX in /health /; do
               TARGET="${BASE}${PATH_SUFFIX}"
               echo "GET ${TARGET}"
-              if curl -fsS --retry 2 --retry-delay 5 --max-time 45 "${TARGET}" >/dev/null; then
+              if curl -fsS --retry 2 --retry-delay 5 --max-time 60 "${TARGET}" >/dev/null; then
                 echo "OK ${TARGET}"
                 ok=1
                 break

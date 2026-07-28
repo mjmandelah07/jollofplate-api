@@ -19,6 +19,13 @@ enum OrderStatus {
   CANCELLED
 }
 
+/// Custom shopping / house-stock requests (no online prices — quote on WhatsApp)
+enum SourcingRequestStatus {
+  PENDING
+  CANCELLED
+  COMPLETED
+}
+
 model AdminUser {
   id           String   @id @default(cuid())
   email        String   @unique
@@ -42,6 +49,7 @@ model Customer {
   emailVerifyToken   String?           @unique
   emailVerifyExpires DateTime?
   orders             Order[]
+  sourcingRequests   SourcingRequest[]
   addresses          CustomerAddress[]
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
@@ -172,4 +180,64 @@ model OrderItem {
 
   @@index([orderId])
   @@index([mealId])
+}
+
+/// Curated list of items JollofPlate can help source (no prices online)
+model SourcingItem {
+  id          String               @id @default(cuid())
+  name        String
+  slug        String               @unique
+  description String               @default("")
+  image       String?
+  /// e.g. "bag", "carton", "pack" — display hint only
+  unitHint    String?
+  available   Boolean              @default(true)
+  sortOrder   Int                  @default(0)
+  requestItems SourcingRequestItem[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([available, sortOrder])
+  @@index([slug])
+}
+
+/// Customer "stock my house" request — separate from menu orders
+model SourcingRequest {
+  id               String                @id @default(cuid())
+  requestNumber    String                @unique
+  customerId       String
+  customer         Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  status           SourcingRequestStatus @default(PENDING)
+  deliveryLine1    String
+  deliveryLine2    String?
+  deliveryCity     String
+  deliveryState    String?
+  deliveryLandmark String?
+  deliveryPhone    String?
+  notes            String?
+  items            SourcingRequestItem[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@index([requestNumber])
+}
+
+model SourcingRequestItem {
+  id             String          @id @default(cuid())
+  requestId      String
+  request        SourcingRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  /// Null when the customer typed a custom item not on the list
+  sourcingItemId String?
+  sourcingItem   SourcingItem?   @relation(fields: [sourcingItemId], references: [id], onDelete: SetNull)
+  name           String
+  /// Optional — customer may omit quantity
+  quantity       Int?
+  notes          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([requestId])
+  @@index([sourcingItemId])
 }
