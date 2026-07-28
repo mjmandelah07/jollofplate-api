@@ -125,7 +125,7 @@ API defaults to **http://localhost:3001**.
 |--------|---------|
 | `npm run start:dev` | Nest watch mode |
 | `npm run prisma:migrate` | Create/apply migrations |
-| `npm run prisma:seed` | Seed admin + sample menu |
+| `npm run prisma:seed` | Bootstrap admin + defaults (idempotent — won’t overwrite settings you edited) |
 | `npm run build` | Production build |
 
 ## Keep-alive (Render free tier)
