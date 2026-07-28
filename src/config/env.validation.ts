@@ -63,19 +63,6 @@ class EnvironmentVariables {
   @IsString()
   MAIL_FROM?: string;
 
-  /**
-   * Comma-separated public URLs to ping every 5 minutes (API + web).
-   * Example: https://api.onrender.com,https://web.onrender.com
-   */
-  @IsOptional()
-  @IsString()
-  KEEP_ALIVE_URLS?: string;
-
-  /** Alias for KEEP_ALIVE_URLS (single or comma-separated). */
-  @IsOptional()
-  @IsString()
-  KEEP_ALIVE_URL?: string;
-
   @IsOptional()
   @IsInt()
   @Min(1)

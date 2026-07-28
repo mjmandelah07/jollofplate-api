@@ -102,7 +102,6 @@ SMTP_PORT=587
 SMTP_USER=               # your Gmail address
 SMTP_PASS=               # Google App Password (not normal password)
 MAIL_FROM=JollofPlate <your-gmail@gmail.com>
-KEEP_ALIVE_URLS=         # comma-separated Render API+web URLs (in-process ping every 5m)
 ```
 
 ## Getting started
@@ -130,17 +129,17 @@ API defaults to **http://localhost:3001**.
 
 ## Keep-alive (Render free tier)
 
-Render free services sleep after ~15 minutes idle. This API runs an **in-process** ping every **5 minutes** (no GitHub Action).
+Render free services sleep after ~15 minutes idle. A **GitHub Action** pings every **5 minutes** (external wake-up).
 
-1. On Render (API service) set:
-   - `KEEP_ALIVE_URLS=https://your-api.onrender.com,https://your-web.onrender.com`
-   - Include develop + production URLs if you want both kept warm.
-2. While the API is running, it hits `/health` (then `/`) on each URL.
-3. Check logs for `Keep-alive OK …`.
+1. Workflow: `.github/workflows/keep-alive.yml` (tries `/health`, then `/` per URL).
+2. GitHub → **Settings → Secrets and variables → Actions → Variables**:
+   - Name: `KEEP_ALIVE_URL`
+   - Value: comma-separated Render URLs (API + web, prod + develop), e.g.  
+     `https://jollofplate-api.onrender.com,https://jollofplate-web-develop.onrender.com`
+3. Merge the workflow to **master** (scheduled jobs run from the default branch).
+4. Run **Actions → Keep Alive → Run workflow** once to verify.
 
-**Note:** If the API itself has already slept, nothing can ping until the next visitor (or deploy) wakes it. Mutual pings between API + web help once one is awake.
-
-Health check: `curl http://localhost:3001/health` → `{ "status": "ok" }`.
+Health check: `curl https://your-api.onrender.com/health` → `{ "status": "ok" }`.
 
 ## Product requirements
 
