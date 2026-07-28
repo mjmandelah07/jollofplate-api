@@ -118,4 +118,58 @@ export class UpdateSettingsDto {
   @ValidateNested()
   @Type(() => SocialLinksDto)
   socialLinks?: SocialLinksDto;
+
+  /** Kitchen pickup for Terminal Africa rates */
+  @IsOptional()
+  @IsString()
+  pickupLine1?: string;
+
+  @IsOptional()
+  @IsString()
+  pickupLine2?: string;
+
+  @IsOptional()
+  @IsString()
+  pickupCity?: string;
+
+  @IsOptional()
+  @IsString()
+  pickupState?: string;
+
+  @IsOptional()
+  @IsString()
+  pickupZip?: string;
+
+  @IsOptional()
+  @IsString()
+  pickupCountry?: string;
+
+  @IsOptional()
+  @IsString()
+  pickupPhone?: string;
+
+  @IsOptional()
+  @IsEmail()
+  pickupEmail?: string;
+
+  @IsOptional()
+  @IsString()
+  pickupFirstName?: string;
+
+  @IsOptional()
+  @IsString()
+  pickupLastName?: string;
+
+  /** Terminal packaging IDs — create larger boxes in Terminal for big orders */
+  @IsOptional()
+  @IsString()
+  terminalPackagingIdLight?: string;
+
+  @IsOptional()
+  @IsString()
+  terminalPackagingIdStandard?: string;
+
+  @IsOptional()
+  @IsString()
+  terminalPackagingIdLarge?: string;
 }

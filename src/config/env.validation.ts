@@ -63,6 +63,19 @@ class EnvironmentVariables {
   @IsString()
   MAIL_FROM?: string;
 
+  /** Terminal Africa TShip — secret key for server-side shipping API */
+  @IsOptional()
+  @IsString()
+  TERMINAL_SECRET_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  TERMINAL_PUBLIC_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  TERMINAL_BASE_URL?: string;
+
   @IsOptional()
   @IsInt()
   @Min(1)

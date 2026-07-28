@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -40,6 +41,12 @@ export class AdminOrdersController {
     @Body() dto: UpdateOrderStatusDto,
   ) {
     return this.ordersService.updateStatus(id, dto.status);
+  }
+
+  /** Book Terminal shipment after order is PAID */
+  @Post(':id/book-shipment')
+  bookShipment(@Param('id') id: string) {
+    return this.ordersService.bookShipment(id);
   }
 
   @Delete(':id/items/:itemId')

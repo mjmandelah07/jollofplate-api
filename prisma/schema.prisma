@@ -107,6 +107,8 @@ model Meal {
   bestSeller      Boolean     @default(false)
   available       Boolean     @default(true)
   ingredients     String?
+  /// Shipping weight per unit (kg). Used for Terminal rates; default 0.5 if null.
+  weightKg        Float?
   /// Optional add-ons: [{ "name": string, "price": number }]
   extras          Json?
   orderItems      OrderItem[]
@@ -129,8 +131,25 @@ model RestaurantSettings {
   email          String?
   address        String?
   businessHours  Json?
+  /// Fallback flat fee when Terminal rates are not used
   deliveryFee    Int      @default(0)
   socialLinks    Json?
+  /// Kitchen / pickup address for Terminal Africa shipping
+  pickupLine1    String?
+  pickupLine2    String?
+  pickupCity     String?
+  pickupState    String?
+  pickupZip      String?
+  pickupCountry  String?  @default("NG")
+  pickupPhone    String?
+  pickupEmail    String?
+  pickupFirstName String?
+  pickupLastName  String?
+  /// Terminal packaging IDs by order weight (create boxes in Terminal dashboard)
+  /// light: total under 2kg, standard: under 5kg, large: 5kg+
+  terminalPackagingIdLight    String?
+  terminalPackagingIdStandard String?
+  terminalPackagingIdLarge    String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
@@ -155,6 +174,15 @@ model Order {
   deliveryPhone    String?
   notes       String?
   paidAt      DateTime?
+  /// Terminal Africa shipping (selected at checkout)
+  shippingCarrierName       String?
+  shippingDeliveryTime      String?
+  terminalRateId            String?
+  terminalPickupAddressId   String?
+  terminalDeliveryAddressId String?
+  terminalParcelId          String?
+  terminalShipmentId        String?
+  shippingBookedAt          DateTime?
   items       OrderItem[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt

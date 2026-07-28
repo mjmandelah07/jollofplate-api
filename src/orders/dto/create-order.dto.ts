@@ -41,9 +41,18 @@ export class DeliveryAddressDto {
   @IsNotEmpty()
   city: string;
 
+  /** Required for Terminal Africa rates */
+  @IsString()
+  @IsNotEmpty()
+  state: string;
+
   @IsOptional()
   @IsString()
-  state?: string;
+  zip?: string;
+
+  @IsOptional()
+  @IsString()
+  country?: string;
 
   @IsOptional()
   @IsString()
@@ -70,4 +79,13 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  /**
+   * Terminal Africa rate from POST /shipping/rates.
+   * When set, deliveryFee comes from that live rate (not settings.deliveryFee).
+   */
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  shippingRateId?: string;
 }

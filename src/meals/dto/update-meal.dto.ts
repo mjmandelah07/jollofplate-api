@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   Min,
@@ -48,6 +49,13 @@ export class UpdateMealDto {
   @IsInt()
   @Min(0)
   preparationTime?: number;
+
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.01)
+  weightKg?: number | null;
 
   @IsOptional()
   @IsBoolean()

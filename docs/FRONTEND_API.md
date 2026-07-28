@@ -344,6 +344,71 @@ Response `200`:
 
 `contactNumber`, `email`, `address`, `businessHours`, `socialLinks` can be `null`.
 
+Pickup fields for Terminal shipping (set in **JollofPlate admin settings** — required even if you already saved an address in the Terminal dashboard; we do not auto-read Terminal’s address list yet):
+
+`pickupLine1`, `pickupLine2`, `pickupCity`, `pickupState`, `pickupZip`, `pickupCountry`, `pickupPhone`, `pickupEmail`, `pickupFirstName`, `pickupLastName`
+
+Packaging tiers (Terminal `packaging_id` values from `GET /admin/terminal/packaging`):
+
+`terminalPackagingIdLight` (total under 2kg), `terminalPackagingIdStandard` (under 5kg), `terminalPackagingIdLarge` (5kg+)
+
+---
+
+## 2b. Shipping rates (Customer token — Terminal Africa)
+
+Customer sees live carrier rates at checkout, pays food + selected delivery fee, then admin books the shipment after payment.
+
+### POST `/shipping/rates` — get live rates (Customer)
+
+Requires kitchen pickup address in settings. Body:
+
+```json
+{
+  "deliveryAddress": {
+    "line1": "15 Admiralty Way",
+    "line2": "Flat 2",
+    "city": "Ikeja",
+    "state": "Lagos",
+    "zip": "100001",
+    "country": "NG",
+    "phone": "08098765432"
+  },
+  "items": [
+    { "mealId": "cmd...", "quantity": 2 }
+  ]
+}
+```
+
+Response `201`:
+
+```json
+{
+  "currency": "NGN",
+  "mode": "test",
+  "fallbackDeliveryFee": 1500,
+  "totalWeightKg": 2.5,
+  "packagingId": "PA-...",
+  "rates": [
+    {
+      "rateId": "RT-...",
+      "amount": 1828,
+      "currency": "NGN",
+      "carrierName": "Chowdeck",
+      "carrierSlug": "...",
+      "carrierLogo": "https://...",
+      "deliveryTime": "Within 2 hours",
+      "pickupTime": "Within 1 hour",
+      "pickupAddressId": "AD-...",
+      "deliveryAddressId": "AD-...",
+      "parcelId": "PC-..."
+    }
+  ]
+}
+```
+
+Weights: each meal’s `weightKg` × quantity (default **0.5 kg** per unit if unset). Packaging: settings tiers `terminalPackagingIdLight` (&lt;2kg) / `Standard` (&lt;5kg) / `Large` (5kg+), from Terminal packaging IDs.
+Frontend: show `rates[]`, user picks one → send that `rateId` as `shippingRateId` on `POST /orders`.
+
 ---
 
 ## 3b. Custom shopping / sourcing (separate from menu cart)
@@ -451,7 +516,8 @@ Body:
     "landmark": "Near Computer Village gate",
     "phone": "08012345678"
   },
-  "notes": "No pepper please"
+  "notes": "No pepper please",
+  "shippingRateId": "RT-..."
 }
 ```
 
@@ -460,15 +526,18 @@ Body:
 | `items` | yes | min 1; `quantity` min 1; `extras` optional |
 | `deliveryAddress.line1` | yes | street / house / estate (min 3 chars) |
 | `deliveryAddress.city` | yes | |
+| `deliveryAddress.state` | yes | required (Terminal + checkout) |
 | `deliveryAddress.line2` | no | apartment / floor |
-| `deliveryAddress.state` | no | e.g. Lagos |
 | `deliveryAddress.landmark` | no | helps the rider |
 | `deliveryAddress.phone` | no | delivery contact; else use customer phone in UI |
 | `notes` | no | kitchen / order notes |
+| `shippingRateId` | no* | from `POST /shipping/rates` — when set, `deliveryFee` = live rate amount |
+
+\*Omit `shippingRateId` to fall back to settings `deliveryFee` (no Terminal booking later).
 
 - Each extra's `price` is added per unit: `lineTotal = (unitPrice + extrasTotal) × quantity`.
 - `unitPrice` = meal's `discountPrice` if set, else `price`.
-
+- Server re-fetches the Terminal rate; client amount is not trusted.
 Response `201`:
 
 ```json
@@ -760,6 +829,7 @@ Create body (`name`, `price`, `categoryId` required; `slug` auto-generated):
   "categoryId": "cmd...",
   "images": ["https://res.cloudinary.com/.../smoky.webp"],
   "preparationTime": 25,
+  "weightKg": 1.2,
   "featured": true,
   "bestSeller": false,
   "available": true,
@@ -771,7 +841,9 @@ Create body (`name`, `price`, `categoryId` required; `slug` auto-generated):
 }
 ```
 
-Defaults when omitted: `description ""`, `discountPrice null`, `images []`, `featured false`, `bestSeller false`, `available true`. Send `"discountPrice": null` in PATCH to clear a discount.
+Defaults when omitted: `description ""`, `discountPrice null`, `images []`, `featured false`, `bestSeller false`, `available true`, `weightKg null` (shipping treats null as **0.5 kg** per unit). Send `"discountPrice": null` or `"weightKg": null` in PATCH to clear.
+
+`weightKg` is used by `POST /shipping/rates` (unit weight × quantity). Heavier / bulk meals should set a real value.
 
 Errors: `404` "Category not found", `409` "Meal slug already exists".
 
@@ -799,10 +871,12 @@ Admin order objects include the `customer`:
 | GET `/admin/orders` | `?search=&status=PENDING\|PAID\|CANCELLED&page=1&limit=20` | `{ items, meta }` — items include `items` + `customer` |
 | GET `/admin/orders/:id` | — | one order with `items` + `customer` |
 | PATCH `/admin/orders/:id/status` | `{ "status": "PAID" }` or `{ "status": "CANCELLED" }` | updated order (sets `paidAt` when PAID) |
+| POST `/admin/orders/:id/book-shipment` | — | create + arrange Terminal shipment (**PAID only**; needs `shippingRateId` on order) |
 | DELETE `/admin/orders/:id/items/:itemId` | — | updated order, or `{ "deleted": true, ... }` if last item |
 
 Admin search matches `orderNumber`, `notes`, and customer `email` / `firstName` / `lastName` / `phone`.
 
+**Book shipment flow:** customer pays (WhatsApp) → admin marks `PAID` → admin `POST .../book-shipment` (charges Terminal wallet / arranges pickup). Idempotent guard: already booked → `400`.
 
 Status rules: only `PENDING` orders can change status (`400` "Only pending orders can change status"). Items can only be removed while `PENDING`.
 
@@ -843,11 +917,28 @@ All fields optional — send only what changed:
     "facebook": "",
     "twitter": "",
     "tiktok": ""
-  }
+  },
+  "pickupLine1": "8a Oluwakemi Arogundade Street",
+  "pickupLine2": "N/A",
+  "pickupCity": "Ikorodu",
+  "pickupState": "Lagos",
+  "pickupZip": "104102",
+  "pickupCountry": "NG",
+  "pickupPhone": "08083171151",
+  "pickupEmail": "jollofplate@gmail.com",
+  "pickupFirstName": "Mojisola",
+  "pickupLastName": "Aramide",
+  "terminalPackagingIdLight": "PA-...",
+  "terminalPackagingIdStandard": "PA-...",
+  "terminalPackagingIdLarge": "PA-..."
 }
 ```
 
 `businessHours.week` must contain **all 7 days** when sent. Times are 24h `"HH:mm"`; omit `open`/`close` when `closed: true`.
+
+**Kitchen pickup** must be set here for live rates — copying from your Terminal dashboard default address is fine; the API does not load Terminal addresses automatically.
+
+**Packaging IDs** come from Terminal (`GET /admin/terminal/packaging`). Create larger boxes there for big orders, then paste IDs into the three tier fields.
 
 Response `200`: full updated settings object.
 
@@ -913,6 +1004,59 @@ No prices on these objects — quoting stays on WhatsApp.
 
 ---
 
+## 8c. Admin — Terminal Africa (Admin token)
+
+Shipping connection (optional). Env:
+
+- `TERMINAL_SECRET_KEY` / `TERMINAL_PUBLIC_KEY`
+- `TERMINAL_BASE_URL` — test: `https://sandbox.terminal.africa/v1`, live: `https://api.terminal.africa/v1`
+
+Auth: `Authorization: Bearer SECRET_KEY` ([docs](https://docs.terminal.africa/tship)).
+
+### GET `/admin/terminal/status`
+
+```json
+{
+  "configured": true,
+  "mode": "test",
+  "baseUrl": "https://sandbox.terminal.africa/v1",
+  "ok": true,
+  "message": "Connected to Terminal Africa",
+  "carriersSample": 1
+}
+```
+
+### GET `/admin/terminal/carriers`
+
+Lists active carriers from Terminal (paged).
+
+Query: `?page=1&limit=20` (`limit` max 100)
+
+Response `200`:
+
+```json
+{
+  "items": [ /* carrier objects */ ],
+  "meta": {
+    "total": 31,
+    "page": 1,
+    "limit": 20,
+    "totalPages": 2,
+    "hasNextPage": true,
+    "hasPrevPage": false
+  },
+  "message": "Carriers retrieved successfully"
+}
+```
+
+For Nigeria food delivery, useful domestic options often include **Chowdeck**, **Dellyman**, **GIG Logistics**, **Fez Delivery** (among others). Quote at checkout still returns only carriers that can serve that route.
+
+### GET `/admin/terminal/packaging`
+
+Same pagination: `?page=1&limit=20` → `{ items, meta }`.
+
+---
+
 ## 9. Admin — Stats (Admin token)
 
 ### GET `/admin/stats`
@@ -949,6 +1093,7 @@ Response `200`:
 | `/meals/:slug` | GET | Public |
 | `/meals/:slug/related` | GET | Public |
 | `/settings` | GET | Public |
+| `/shipping/rates` | POST | Customer |
 | `/orders` | POST, GET | Customer |
 | `/orders/:id` | GET | Customer |
 | `/orders/:id/items/:itemId` | DELETE | Customer |
@@ -957,10 +1102,13 @@ Response `200`:
 | `/addresses` (+`/:id`, `/:id/default`) | GET, POST, PATCH, DELETE | Customer |
 | `/admin/categories` (+`/:id`, `/reorder`) | GET, POST, PATCH, DELETE | Admin |
 | `/admin/meals` (+`/:id`) | GET, POST, PATCH, DELETE | Admin |
-| `/admin/orders` (+`/:id`, `/:id/status`, `/:id/items/:itemId`) | GET, PATCH, DELETE | Admin |
+| `/admin/orders` (+`/:id`, `/:id/status`, `/:id/book-shipment`, `/:id/items/:itemId`) | GET, PATCH, POST, DELETE | Admin |
 | `/admin/settings` | GET, PATCH | Admin |
 | `/admin/uploads` | POST | Admin |
 | `/admin/stats` | GET | Admin |
+| `/admin/terminal/status` | GET | Admin |
+| `/admin/terminal/carriers` | GET | Admin (`?page=&limit=`) |
+| `/admin/terminal/packaging` | GET | Admin (`?page=&limit=`) |
 | `/sourcing-items` | GET | Public |
 | `/sourcing-requests` | POST, GET | Customer |
 | `/sourcing-requests/:id` | GET | Customer |

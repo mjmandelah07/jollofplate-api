@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   Min,
@@ -45,6 +46,14 @@ export class CreateMealDto {
   @IsInt()
   @Min(0)
   preparationTime?: number;
+
+  /** kg per unit for Terminal shipping rates */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.01)
+  weightKg?: number | null;
 
   @IsOptional()
   @IsBoolean()
