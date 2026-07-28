@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   ServiceUnavailableException,
@@ -234,9 +235,12 @@ export class TerminalService {
         (json && typeof json.error === 'string' && json.error) ||
         text.slice(0, 200) ||
         response.statusText;
-      throw new ServiceUnavailableException(
-        `Terminal Africa ${method} ${path} failed (${response.status}): ${detail}`,
-      );
+      const label = `Terminal Africa ${method} ${path} failed (${response.status}): ${detail}`;
+      // Validation problems (bad phone/address) → 400; real outages → 503
+      if (response.status >= 400 && response.status < 500) {
+        throw new BadRequestException(label);
+      }
+      throw new ServiceUnavailableException(label);
     }
 
     return (json ?? {}) as T;
@@ -246,16 +250,17 @@ export class TerminalService {
     address: TerminalAddressInput,
     residential: boolean,
   ) {
+    const country = this.normalizeCountry(address.country);
     return {
       city: address.city.trim(),
       state: address.state.trim(),
-      country: (address.country || 'NG').trim().toUpperCase(),
+      country,
       zip: address.zip.trim() || '100001',
       line1: address.line1.trim(),
       line2: address.line2?.trim() || 'N/A',
       first_name: address.first_name.trim(),
       last_name: address.last_name.trim(),
-      phone: this.normalizePhone(address.phone),
+      phone: this.normalizePhone(address.phone, country),
       email: address.email?.trim() || undefined,
       name:
         address.name?.trim() ||
@@ -264,18 +269,54 @@ export class TerminalService {
     };
   }
 
-  private normalizePhone(phone: string) {
-    const raw = phone.trim().replace(/\s+/g, '');
-    if (raw.startsWith('+')) {
-      return raw;
+  /** Terminal wants ISO-2 (NG), not "Nigeria". */
+  private normalizeCountry(country?: string) {
+    const raw = (country || 'NG').trim();
+    const upper = raw.toUpperCase();
+    const aliases: Record<string, string> = {
+      NIGERIA: 'NG',
+      'UNITED KINGDOM': 'GB',
+      UK: 'GB',
+      'UNITED STATES': 'US',
+      USA: 'US',
+      GHANA: 'GH',
+      KENYA: 'KE',
+    };
+    if (aliases[upper]) {
+      return aliases[upper];
     }
-    if (raw.startsWith('234')) {
-      return `+${raw}`;
+    if (upper.length === 2) {
+      return upper;
     }
-    if (raw.startsWith('0')) {
-      return `+234${raw.slice(1)}`;
+    return 'NG';
+  }
+
+  /**
+   * Terminal requires phone country code to match address country.
+   * For NG → E.164 like +2348012345678 (no leading 0 after 234).
+   */
+  private normalizePhone(phone: string, country = 'NG') {
+    const trimmed = phone.trim().replace(/[\s\-()]/g, '');
+    if (!trimmed) {
+      return trimmed;
     }
-    return `+234${raw}`;
+
+    if (country === 'NG') {
+      let digits = trimmed.replace(/^\+/, '');
+      if (digits.startsWith('234')) {
+        digits = digits.slice(3);
+      }
+      // local numbers often start with 0
+      if (digits.startsWith('0')) {
+        digits = digits.slice(1);
+      }
+      return `+234${digits}`;
+    }
+
+    if (trimmed.startsWith('+')) {
+      return trimmed;
+    }
+    return `+${trimmed}`;
   }
 
   private requireSecret() {
