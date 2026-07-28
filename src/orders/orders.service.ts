@@ -9,6 +9,7 @@ import {
   Prisma,
 } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { ShippingService } from '../shipping/shipping.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 
@@ -16,13 +17,15 @@ type AuthUser = { id: string; role: string };
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly shipping: ShippingService,
+  ) {}
 
   async createForCustomer(customerId: string, dto: CreateOrderDto) {
     const settings = await this.prisma.restaurantSettings.findFirst({
       orderBy: { createdAt: 'asc' },
     });
-    const deliveryFee = settings?.deliveryFee ?? 0;
 
     const mealIds = dto.items.map((item) => item.mealId);
     const meals = await this.prisma.meal.findMany({
@@ -65,6 +68,38 @@ export class OrdersService {
     }
 
     const subtotal = lineItems.reduce((sum, item) => sum + item.lineTotal, 0);
+
+    let deliveryFee = settings?.deliveryFee ?? 0;
+    let shippingCarrierName: string | null = null;
+    let shippingDeliveryTime: string | null = null;
+    let terminalRateId: string | null = null;
+    let terminalPickupAddressId: string | null = null;
+    let terminalDeliveryAddressId: string | null = null;
+    let terminalParcelId: string | null = null;
+
+    if (dto.shippingRateId?.trim()) {
+      const rate = await this.shipping.resolveRateForCheckout(
+        dto.shippingRateId.trim(),
+      );
+      deliveryFee = rate.amount;
+      shippingCarrierName = rate.carrierName;
+      shippingDeliveryTime = rate.deliveryTime;
+      terminalRateId = rate.rateId;
+      terminalPickupAddressId = rate.pickupAddressId;
+      terminalDeliveryAddressId = rate.deliveryAddressId;
+      terminalParcelId = rate.parcelId;
+
+      if (
+        !terminalPickupAddressId ||
+        !terminalDeliveryAddressId ||
+        !terminalParcelId
+      ) {
+        throw new BadRequestException(
+          'Shipping rate is missing Terminal address/parcel ids — request rates again',
+        );
+      }
+    }
+
     const total = subtotal + deliveryFee;
     const orderNumber = await this.generateOrderNumber();
 
@@ -83,6 +118,12 @@ export class OrdersService {
         deliveryLandmark: dto.deliveryAddress.landmark?.trim() || null,
         deliveryPhone: dto.deliveryAddress.phone?.trim() || null,
         notes: dto.notes,
+        shippingCarrierName,
+        shippingDeliveryTime,
+        terminalRateId,
+        terminalPickupAddressId,
+        terminalDeliveryAddressId,
+        terminalParcelId,
         items: {
           create: lineItems,
         },
@@ -220,6 +261,48 @@ export class OrdersService {
         },
       },
     });
+  }
+
+  /** After PAID: create Terminal shipment + arrange pickup (charges Terminal wallet). */
+  async bookShipment(orderId: string) {
+    const order = await this.findOneAdmin(orderId);
+
+    if (order.status !== OrderStatus.PAID) {
+      throw new BadRequestException(
+        'Only paid orders can book a shipment',
+      );
+    }
+
+    const { shipmentId, arranged } =
+      await this.shipping.bookShipmentForOrder(order);
+
+    const updated = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        terminalShipmentId: shipmentId,
+        shippingBookedAt: new Date(),
+      },
+      include: {
+        ...this.orderInclude(),
+        customer: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    return {
+      ...updated,
+      terminal: {
+        shipmentId,
+        arrange: arranged,
+      },
+    };
   }
 
   async removeItem(user: AuthUser, orderId: string, itemId: string) {
@@ -370,12 +453,16 @@ export class OrdersService {
     T extends {
       orderNumber: string;
       total: number;
+      subtotal: number;
+      deliveryFee: number;
       deliveryLine1: string;
       deliveryLine2: string | null;
       deliveryCity: string;
       deliveryState: string | null;
       deliveryLandmark: string | null;
       deliveryPhone: string | null;
+      shippingCarrierName?: string | null;
+      shippingDeliveryTime?: string | null;
     },
   >(order: T, whatsappNumber?: string | null) {
     const addressParts = [
@@ -387,8 +474,15 @@ export class OrdersService {
       order.deliveryPhone ? `Phone: ${order.deliveryPhone}` : null,
     ].filter(Boolean);
 
+    const shippingLine = order.shippingCarrierName
+      ? `Delivery: ₦${order.deliveryFee} via ${order.shippingCarrierName}${order.shippingDeliveryTime ? ` (${order.shippingDeliveryTime})` : ''}`
+      : `Delivery: ₦${order.deliveryFee}`;
+
     const text = [
-      `Hello JollofPlate! I want to pay for order ${order.orderNumber} (Total: ₦${order.total}).`,
+      `Hello JollofPlate! I want to pay for order ${order.orderNumber}.`,
+      `Food: ₦${order.subtotal}`,
+      shippingLine,
+      `Total: ₦${order.total}`,
       `Deliver to: ${addressParts.join(', ')}`,
     ].join('\n');
 

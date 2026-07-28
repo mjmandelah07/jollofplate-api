@@ -44,6 +44,16 @@ export class SettingsService {
           dto.socialLinks === undefined
             ? undefined
             : (dto.socialLinks as unknown as Prisma.InputJsonValue),
+        pickupLine1: dto.pickupLine1,
+        pickupLine2: dto.pickupLine2,
+        pickupCity: dto.pickupCity,
+        pickupState: dto.pickupState,
+        pickupZip: dto.pickupZip,
+        pickupCountry: dto.pickupCountry,
+        pickupPhone: dto.pickupPhone,
+        pickupEmail: dto.pickupEmail,
+        pickupFirstName: dto.pickupFirstName,
+        pickupLastName: dto.pickupLastName,
       },
     });
   }

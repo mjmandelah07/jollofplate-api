@@ -344,6 +344,64 @@ Response `200`:
 
 `contactNumber`, `email`, `address`, `businessHours`, `socialLinks` can be `null`.
 
+Pickup fields for Terminal shipping (set in admin settings):
+
+`pickupLine1`, `pickupLine2`, `pickupCity`, `pickupState`, `pickupZip`, `pickupCountry`, `pickupPhone`, `pickupEmail`, `pickupFirstName`, `pickupLastName`
+
+---
+
+## 2b. Shipping rates (Customer token — Terminal Africa)
+
+Customer sees live carrier rates at checkout, pays food + selected delivery fee, then admin books the shipment after payment.
+
+### POST `/shipping/rates` — get live rates (Customer)
+
+Requires kitchen pickup address in settings. Body:
+
+```json
+{
+  "deliveryAddress": {
+    "line1": "15 Admiralty Way",
+    "line2": "Flat 2",
+    "city": "Ikeja",
+    "state": "Lagos",
+    "zip": "100001",
+    "country": "NG",
+    "phone": "08098765432"
+  },
+  "items": [
+    { "mealId": "cmd...", "quantity": 2 }
+  ]
+}
+```
+
+Response `201`:
+
+```json
+{
+  "currency": "NGN",
+  "mode": "test",
+  "fallbackDeliveryFee": 1500,
+  "rates": [
+    {
+      "rateId": "RT-...",
+      "amount": 1828,
+      "currency": "NGN",
+      "carrierName": "Chowdeck",
+      "carrierSlug": "...",
+      "carrierLogo": "https://...",
+      "deliveryTime": "Within 2 hours",
+      "pickupTime": "Within 1 hour",
+      "pickupAddressId": "AD-...",
+      "deliveryAddressId": "AD-...",
+      "parcelId": "PC-..."
+    }
+  ]
+}
+```
+
+Frontend: show `rates[]`, user picks one → send that `rateId` as `shippingRateId` on `POST /orders`.
+
 ---
 
 ## 3b. Custom shopping / sourcing (separate from menu cart)
@@ -451,7 +509,8 @@ Body:
     "landmark": "Near Computer Village gate",
     "phone": "08012345678"
   },
-  "notes": "No pepper please"
+  "notes": "No pepper please",
+  "shippingRateId": "RT-..."
 }
 ```
 
@@ -460,15 +519,18 @@ Body:
 | `items` | yes | min 1; `quantity` min 1; `extras` optional |
 | `deliveryAddress.line1` | yes | street / house / estate (min 3 chars) |
 | `deliveryAddress.city` | yes | |
+| `deliveryAddress.state` | yes | required (Terminal + checkout) |
 | `deliveryAddress.line2` | no | apartment / floor |
-| `deliveryAddress.state` | no | e.g. Lagos |
 | `deliveryAddress.landmark` | no | helps the rider |
 | `deliveryAddress.phone` | no | delivery contact; else use customer phone in UI |
 | `notes` | no | kitchen / order notes |
+| `shippingRateId` | no* | from `POST /shipping/rates` — when set, `deliveryFee` = live rate amount |
+
+\*Omit `shippingRateId` to fall back to settings `deliveryFee` (no Terminal booking later).
 
 - Each extra's `price` is added per unit: `lineTotal = (unitPrice + extrasTotal) × quantity`.
 - `unitPrice` = meal's `discountPrice` if set, else `price`.
-
+- Server re-fetches the Terminal rate; client amount is not trusted.
 Response `201`:
 
 ```json
@@ -799,10 +861,12 @@ Admin order objects include the `customer`:
 | GET `/admin/orders` | `?search=&status=PENDING\|PAID\|CANCELLED&page=1&limit=20` | `{ items, meta }` — items include `items` + `customer` |
 | GET `/admin/orders/:id` | — | one order with `items` + `customer` |
 | PATCH `/admin/orders/:id/status` | `{ "status": "PAID" }` or `{ "status": "CANCELLED" }` | updated order (sets `paidAt` when PAID) |
+| POST `/admin/orders/:id/book-shipment` | — | create + arrange Terminal shipment (**PAID only**; needs `shippingRateId` on order) |
 | DELETE `/admin/orders/:id/items/:itemId` | — | updated order, or `{ "deleted": true, ... }` if last item |
 
 Admin search matches `orderNumber`, `notes`, and customer `email` / `firstName` / `lastName` / `phone`.
 
+**Book shipment flow:** customer pays (WhatsApp) → admin marks `PAID` → admin `POST .../book-shipment` (charges Terminal wallet / arranges pickup). Idempotent guard: already booked → `400`.
 
 Status rules: only `PENDING` orders can change status (`400` "Only pending orders can change status"). Items can only be removed while `PENDING`.
 
@@ -913,6 +977,38 @@ No prices on these objects — quoting stays on WhatsApp.
 
 ---
 
+## 8c. Admin — Terminal Africa (Admin token)
+
+Shipping connection (optional). Env:
+
+- `TERMINAL_SECRET_KEY` / `TERMINAL_PUBLIC_KEY`
+- `TERMINAL_BASE_URL` — test: `https://sandbox.terminal.africa/v1`, live: `https://api.terminal.africa/v1`
+
+Auth: `Authorization: Bearer SECRET_KEY` ([docs](https://docs.terminal.africa/tship)).
+
+### GET `/admin/terminal/status`
+
+```json
+{
+  "configured": true,
+  "mode": "test",
+  "baseUrl": "https://sandbox.terminal.africa/v1",
+  "ok": true,
+  "message": "Connected to Terminal Africa",
+  "carriersSample": 1
+}
+```
+
+### GET `/admin/terminal/carriers`
+
+Lists active carriers from Terminal.
+
+### GET `/admin/terminal/packaging`
+
+Lists packaging types from your Terminal account.
+
+---
+
 ## 9. Admin — Stats (Admin token)
 
 ### GET `/admin/stats`
@@ -949,18 +1045,23 @@ Response `200`:
 | `/meals/:slug` | GET | Public |
 | `/meals/:slug/related` | GET | Public |
 | `/settings` | GET | Public |
+| `/shipping/rates` | POST | Customer |
 | `/orders` | POST, GET | Customer |
 | `/orders/:id` | GET | Customer |
 | `/orders/:id/items/:itemId` | DELETE | Customer |
+| `/admin/orders` (+`/:id`, `/:id/status`, `/:id/book-shipment`, `/:id/items/:itemId`) | GET, PATCH, POST, DELETE | Admin |
 | `/account/profile` | GET, PATCH | Customer |
 | `/account/password` | PATCH | Customer |
 | `/addresses` (+`/:id`, `/:id/default`) | GET, POST, PATCH, DELETE | Customer |
 | `/admin/categories` (+`/:id`, `/reorder`) | GET, POST, PATCH, DELETE | Admin |
 | `/admin/meals` (+`/:id`) | GET, POST, PATCH, DELETE | Admin |
-| `/admin/orders` (+`/:id`, `/:id/status`, `/:id/items/:itemId`) | GET, PATCH, DELETE | Admin |
+| `/admin/orders` (+`/:id`, `/:id/status`, `/:id/book-shipment`, `/:id/items/:itemId`) | GET, PATCH, POST, DELETE | Admin |
 | `/admin/settings` | GET, PATCH | Admin |
 | `/admin/uploads` | POST | Admin |
 | `/admin/stats` | GET | Admin |
+| `/admin/terminal/status` | GET | Admin |
+| `/admin/terminal/carriers` | GET | Admin |
+| `/admin/terminal/packaging` | GET | Admin |
 | `/sourcing-items` | GET | Public |
 | `/sourcing-requests` | POST, GET | Customer |
 | `/sourcing-requests/:id` | GET | Customer |

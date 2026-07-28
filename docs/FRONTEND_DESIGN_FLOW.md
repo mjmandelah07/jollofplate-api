@@ -358,18 +358,31 @@ After a successful password update, show a confirmation toast. The current JWT r
 ### 2.3 Checkout → WhatsApp
 
 **Route:** `/checkout`  
-**Auth:** customer JWT required  
+**Auth:** customer JWT required
+
+1. Enter / select delivery address (`state` required).
+2. Call `POST /shipping/rates` with address + cart meal lines → show carrier options (amount, ETA, logo).
+3. Customer picks a rate.
+4. `POST /orders` with cart + address + `shippingRateId` → total includes live delivery fee.
+5. Open WhatsApp with `checkout.suggestedMessage` (food + delivery + total).
+6. Admin later: mark PAID → **Book shipment** (`POST /admin/orders/:id/book-shipment`).
+
+Fallback: if rates fail / Terminal off, omit `shippingRateId` and use settings `deliveryFee` (no book-shipment).
+
+**Kitchen pickup:** Admin settings must set `pickupLine1`, `pickupCity`, `pickupState`, `pickupPhone` (etc.) before rates work.  
 **Gate:** if no token → `/login?next=/checkout`
 
 **Steps**
 
-1. Review cart + **delivery address** + notes  
-2. Confirm delivery fee display (from settings)  
-3. Submit → `POST /orders` (requires `deliveryAddress`)  
+1. Review cart + **delivery address** (`state` required) + notes  
+2. Load live rates → customer selects a carrier  
+3. Submit → `POST /orders` with `deliveryAddress` + `shippingRateId`  
+4. WhatsApp pay → admin marks PAID → Book shipment  
 
 ```json
 {
   "notes": "Extra spicy please",
+  "shippingRateId": "RT-...",
   "deliveryAddress": {
     "line1": "12 Allen Avenue",
     "line2": "Flat 3B",

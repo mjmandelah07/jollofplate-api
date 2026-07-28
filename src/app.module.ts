@@ -12,6 +12,8 @@ import { OrdersModule } from './orders/orders.module';
 import { AddressesModule } from './addresses/addresses.module';
 import { AccountModule } from './account/account.module';
 import { SourcingModule } from './sourcing/sourcing.module';
+import { TerminalModule } from './terminal/terminal.module';
+import { ShippingModule } from './shipping/shipping.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -32,6 +34,8 @@ import { AppService } from './app.service';
     AddressesModule,
     AccountModule,
     SourcingModule,
+    TerminalModule,
+    ShippingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

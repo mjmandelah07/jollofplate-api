@@ -103,6 +103,13 @@ SMTP_SECURE=true
 SMTP_USER=               # your Gmail address
 SMTP_PASS=               # Google App Password (not normal password)
 MAIL_FROM=JollofPlate <your-gmail@gmail.com>
+
+# Terminal Africa shipping (TShip)
+# Test: sk_test_… + https://sandbox.terminal.africa/v1
+# Live: sk_live_… + https://api.terminal.africa/v1
+TERMINAL_PUBLIC_KEY=pk_test_...
+TERMINAL_SECRET_KEY=sk_test_...
+TERMINAL_BASE_URL=https://sandbox.terminal.africa/v1
 ```
 
 ## Getting started
