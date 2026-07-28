@@ -107,6 +107,8 @@ model Meal {
   bestSeller      Boolean     @default(false)
   available       Boolean     @default(true)
   ingredients     String?
+  /// Shipping weight per unit (kg). Used for Terminal rates; default 0.5 if null.
+  weightKg        Float?
   /// Optional add-ons: [{ "name": string, "price": number }]
   extras          Json?
   orderItems      OrderItem[]
@@ -143,6 +145,11 @@ model RestaurantSettings {
   pickupEmail    String?
   pickupFirstName String?
   pickupLastName  String?
+  /// Terminal packaging IDs by order weight (create boxes in Terminal dashboard)
+  /// light: total under 2kg, standard: under 5kg, large: 5kg+
+  terminalPackagingIdLight    String?
+  terminalPackagingIdStandard String?
+  terminalPackagingIdLarge    String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

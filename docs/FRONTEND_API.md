@@ -344,9 +344,13 @@ Response `200`:
 
 `contactNumber`, `email`, `address`, `businessHours`, `socialLinks` can be `null`.
 
-Pickup fields for Terminal shipping (set in admin settings):
+Pickup fields for Terminal shipping (set in **JollofPlate admin settings** — required even if you already saved an address in the Terminal dashboard; we do not auto-read Terminal’s address list yet):
 
 `pickupLine1`, `pickupLine2`, `pickupCity`, `pickupState`, `pickupZip`, `pickupCountry`, `pickupPhone`, `pickupEmail`, `pickupFirstName`, `pickupLastName`
+
+Packaging tiers (Terminal `packaging_id` values from `GET /admin/terminal/packaging`):
+
+`terminalPackagingIdLight` (total under 2kg), `terminalPackagingIdStandard` (under 5kg), `terminalPackagingIdLarge` (5kg+)
 
 ---
 
@@ -382,6 +386,8 @@ Response `201`:
   "currency": "NGN",
   "mode": "test",
   "fallbackDeliveryFee": 1500,
+  "totalWeightKg": 2.5,
+  "packagingId": "PA-...",
   "rates": [
     {
       "rateId": "RT-...",
@@ -400,6 +406,7 @@ Response `201`:
 }
 ```
 
+Weights: each meal’s `weightKg` × quantity (default **0.5 kg** per unit if unset). Packaging: settings tiers `terminalPackagingIdLight` (&lt;2kg) / `Standard` (&lt;5kg) / `Large` (5kg+), from Terminal packaging IDs.
 Frontend: show `rates[]`, user picks one → send that `rateId` as `shippingRateId` on `POST /orders`.
 
 ---
@@ -822,6 +829,7 @@ Create body (`name`, `price`, `categoryId` required; `slug` auto-generated):
   "categoryId": "cmd...",
   "images": ["https://res.cloudinary.com/.../smoky.webp"],
   "preparationTime": 25,
+  "weightKg": 1.2,
   "featured": true,
   "bestSeller": false,
   "available": true,
@@ -833,7 +841,9 @@ Create body (`name`, `price`, `categoryId` required; `slug` auto-generated):
 }
 ```
 
-Defaults when omitted: `description ""`, `discountPrice null`, `images []`, `featured false`, `bestSeller false`, `available true`. Send `"discountPrice": null` in PATCH to clear a discount.
+Defaults when omitted: `description ""`, `discountPrice null`, `images []`, `featured false`, `bestSeller false`, `available true`, `weightKg null` (shipping treats null as **0.5 kg** per unit). Send `"discountPrice": null` or `"weightKg": null` in PATCH to clear.
+
+`weightKg` is used by `POST /shipping/rates` (unit weight × quantity). Heavier / bulk meals should set a real value.
 
 Errors: `404` "Category not found", `409` "Meal slug already exists".
 
@@ -907,11 +917,28 @@ All fields optional — send only what changed:
     "facebook": "",
     "twitter": "",
     "tiktok": ""
-  }
+  },
+  "pickupLine1": "8a Oluwakemi Arogundade Street",
+  "pickupLine2": "N/A",
+  "pickupCity": "Ikorodu",
+  "pickupState": "Lagos",
+  "pickupZip": "104102",
+  "pickupCountry": "NG",
+  "pickupPhone": "08083171151",
+  "pickupEmail": "jollofplate@gmail.com",
+  "pickupFirstName": "Mojisola",
+  "pickupLastName": "Aramide",
+  "terminalPackagingIdLight": "PA-...",
+  "terminalPackagingIdStandard": "PA-...",
+  "terminalPackagingIdLarge": "PA-..."
 }
 ```
 
 `businessHours.week` must contain **all 7 days** when sent. Times are 24h `"HH:mm"`; omit `open`/`close` when `closed: true`.
+
+**Kitchen pickup** must be set here for live rates — copying from your Terminal dashboard default address is fine; the API does not load Terminal addresses automatically.
+
+**Packaging IDs** come from Terminal (`GET /admin/terminal/packaging`). Create larger boxes there for big orders, then paste IDs into the three tier fields.
 
 Response `200`: full updated settings object.
 
@@ -1001,11 +1028,32 @@ Auth: `Authorization: Bearer SECRET_KEY` ([docs](https://docs.terminal.africa/ts
 
 ### GET `/admin/terminal/carriers`
 
-Lists active carriers from Terminal.
+Lists active carriers from Terminal (paged).
+
+Query: `?page=1&limit=20` (`limit` max 100)
+
+Response `200`:
+
+```json
+{
+  "items": [ /* carrier objects */ ],
+  "meta": {
+    "total": 31,
+    "page": 1,
+    "limit": 20,
+    "totalPages": 2,
+    "hasNextPage": true,
+    "hasPrevPage": false
+  },
+  "message": "Carriers retrieved successfully"
+}
+```
+
+For Nigeria food delivery, useful domestic options often include **Chowdeck**, **Dellyman**, **GIG Logistics**, **Fez Delivery** (among others). Quote at checkout still returns only carriers that can serve that route.
 
 ### GET `/admin/terminal/packaging`
 
-Lists packaging types from your Terminal account.
+Same pagination: `?page=1&limit=20` → `{ items, meta }`.
 
 ---
 
@@ -1049,7 +1097,6 @@ Response `200`:
 | `/orders` | POST, GET | Customer |
 | `/orders/:id` | GET | Customer |
 | `/orders/:id/items/:itemId` | DELETE | Customer |
-| `/admin/orders` (+`/:id`, `/:id/status`, `/:id/book-shipment`, `/:id/items/:itemId`) | GET, PATCH, POST, DELETE | Admin |
 | `/account/profile` | GET, PATCH | Customer |
 | `/account/password` | PATCH | Customer |
 | `/addresses` (+`/:id`, `/:id/default`) | GET, POST, PATCH, DELETE | Customer |
@@ -1060,8 +1107,8 @@ Response `200`:
 | `/admin/uploads` | POST | Admin |
 | `/admin/stats` | GET | Admin |
 | `/admin/terminal/status` | GET | Admin |
-| `/admin/terminal/carriers` | GET | Admin |
-| `/admin/terminal/packaging` | GET | Admin |
+| `/admin/terminal/carriers` | GET | Admin (`?page=&limit=`) |
+| `/admin/terminal/packaging` | GET | Admin (`?page=&limit=`) |
 | `/sourcing-items` | GET | Public |
 | `/sourcing-requests` | POST, GET | Customer |
 | `/sourcing-requests/:id` | GET | Customer |

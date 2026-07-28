@@ -53,20 +53,28 @@ export class ShippingService {
       weight: number;
     }[] = [];
 
+    let totalWeightKg = 0;
     for (const item of dto.items) {
       const meal = mealMap.get(item.mealId);
       if (!meal) {
         throw new BadRequestException(`Meal not available: ${item.mealId}`);
       }
       const unitPrice = meal.discountPrice ?? meal.price;
+      // Per-unit kg (Terminal multiplies by quantity). Default ~plate of food.
+      const unitWeightKg =
+        meal.weightKg && meal.weightKg > 0 ? meal.weightKg : 0.5;
+      totalWeightKg += unitWeightKg * item.quantity;
       parcelItems.push({
         description: meal.name,
         name: meal.name,
         value: unitPrice,
         quantity: item.quantity,
-        weight: Math.max(0.5, 0.4 * item.quantity),
+        weight: unitWeightKg,
       });
     }
+
+    totalWeightKg = Math.round(totalWeightKg * 1000) / 1000;
+    const packagingId = this.pickPackagingId(settings, totalWeightKg);
 
     const phone =
       dto.deliveryAddress.phone?.trim() ||
@@ -99,6 +107,7 @@ export class ShippingService {
         is_residential: true,
       },
       items: parcelItems,
+      packagingId,
     });
 
     const rawRates = Array.isArray(quotes.data) ? (quotes.data as RateRow[]) : [];
@@ -111,6 +120,8 @@ export class ShippingService {
       currency: 'NGN',
       mode: this.terminal.isTestMode() ? 'test' : 'live',
       fallbackDeliveryFee: settings.deliveryFee,
+      totalWeightKg,
+      packagingId: packagingId ?? null,
       rates,
     };
   }
@@ -232,6 +243,28 @@ export class ShippingService {
       name: settings.restaurantName,
       is_residential: false,
     };
+  }
+
+  /** Pick packaging by total cart weight. Falls back to next smaller/larger configured id. */
+  private pickPackagingId(
+    settings: {
+      terminalPackagingIdLight: string | null;
+      terminalPackagingIdStandard: string | null;
+      terminalPackagingIdLarge: string | null;
+    },
+    totalWeightKg: number,
+  ): string | null {
+    const light = settings.terminalPackagingIdLight?.trim() || null;
+    const standard = settings.terminalPackagingIdStandard?.trim() || null;
+    const large = settings.terminalPackagingIdLarge?.trim() || null;
+
+    if (totalWeightKg < 2) {
+      return light || standard || large;
+    }
+    if (totalWeightKg < 5) {
+      return standard || large || light;
+    }
+    return large || standard || light;
   }
 
   private mapRate(rate: RateRow) {

@@ -116,15 +116,20 @@ export class TerminalService {
     }
   }
 
-  async listActiveCarriers(perPage = 20) {
-    return this.request<TerminalJson>(
+  async listActiveCarriers(page = 1, limit = 20) {
+    const raw = await this.request<TerminalJson>(
       'GET',
-      `/carriers?active=true&perPage=${perPage}`,
+      `/carriers?active=true&page=${page}&perPage=${limit}`,
     );
+    return this.normalizePagedList(raw, 'carriers', page, limit);
   }
 
-  async listPackaging(perPage = 20) {
-    return this.request<TerminalJson>('GET', `/packaging?perPage=${perPage}`);
+  async listPackaging(page = 1, limit = 20) {
+    const raw = await this.request<TerminalJson>(
+      'GET',
+      `/packaging?page=${page}&perPage=${limit}`,
+    );
+    return this.normalizePagedList(raw, 'packaging', page, limit);
   }
 
   /**
@@ -135,6 +140,7 @@ export class TerminalService {
     pickup: TerminalAddressInput;
     delivery: TerminalAddressInput;
     items: TerminalParcelItemInput[];
+    packagingId?: string | null;
     currency?: string;
   }) {
     const payload = {
@@ -145,6 +151,9 @@ export class TerminalService {
       parcel: {
         description: 'JollofPlate food order',
         weight_unit: 'kg',
+        ...(params.packagingId
+          ? { packaging_id: params.packagingId }
+          : {}),
         items: params.items.map((item) => ({
           description: item.description,
           name: item.name,
@@ -275,5 +284,54 @@ export class TerminalService {
         'Terminal Africa is not configured (missing TERMINAL_SECRET_KEY)',
       );
     }
+  }
+
+  private normalizePagedList(
+    raw: TerminalJson,
+    listKey: string,
+    fallbackPage: number,
+    fallbackLimit: number,
+  ) {
+    const data =
+      raw.data && typeof raw.data === 'object'
+        ? (raw.data as TerminalJson)
+        : {};
+    const items = Array.isArray(data[listKey])
+      ? (data[listKey] as unknown[])
+      : [];
+    const pagination =
+      data.pagination && typeof data.pagination === 'object'
+        ? (data.pagination as TerminalJson)
+        : {};
+
+    const page =
+      typeof pagination.currentPage === 'number'
+        ? pagination.currentPage
+        : typeof pagination.page === 'number'
+          ? pagination.page
+          : fallbackPage;
+    const limit =
+      typeof pagination.perPage === 'number'
+        ? pagination.perPage
+        : fallbackLimit;
+    const total =
+      typeof pagination.total === 'number' ? pagination.total : items.length;
+    const totalPages =
+      typeof pagination.pageCount === 'number'
+        ? pagination.pageCount
+        : Math.ceil(total / limit) || 1;
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: Boolean(pagination.hasNextPage),
+        hasPrevPage: Boolean(pagination.hasPrevPage),
+      },
+      message: typeof raw.message === 'string' ? raw.message : undefined,
+    };
   }
 }

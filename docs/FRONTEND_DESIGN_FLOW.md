@@ -369,7 +369,9 @@ After a successful password update, show a confirmation toast. The current JWT r
 
 Fallback: if rates fail / Terminal off, omit `shippingRateId` and use settings `deliveryFee` (no book-shipment).
 
-**Kitchen pickup:** Admin settings must set `pickupLine1`, `pickupCity`, `pickupState`, `pickupPhone` (etc.) before rates work.  
+**Kitchen pickup:** Admin settings must set `pickupLine1`, `pickupCity`, `pickupState`, `pickupPhone` (etc.) before rates work. A address saved only in the Terminal dashboard is **not** enough — copy it into JollofPlate settings.  
+**Packaging:** optional `terminalPackagingIdLight|Standard|Large` from Terminal packaging list (better rates for large carts).  
+**Meal weights:** optional `weightKg` on each meal (default 0.5 kg/unit).  
 **Gate:** if no token → `/login?next=/checkout`
 
 **Steps**
@@ -656,6 +658,7 @@ POST            /admin/uploads
 - Price, optional discountPrice (show live preview: ~~4500~~ **4000**)  
 - Images (multi upload → URLs array)  
 - Prep time, ingredients  
+- **Shipping weight (`weightKg`)** — kg per unit for Terminal rates (default 0.5 if empty)  
 - Extras editor (add rows: name + price)  
 - Toggles: available, featured, bestSeller  
 
@@ -674,6 +677,7 @@ POST            /admin/uploads
 GET    /admin/orders?search={q}&status=PENDING&page=1&limit=20
 GET    /admin/orders/:id
 PATCH  /admin/orders/:id/status
+POST   /admin/orders/:id/book-shipment
 DELETE /admin/orders/:id/items/:itemId
 ```
 
@@ -696,8 +700,10 @@ DELETE /admin/orders/:id/items/:itemId
 | Status | Actions |
 |--------|---------|
 | PENDING | Mark **Paid**, Mark **Cancelled**, Remove item |
-| PAID | Read-only |
+| PAID | **Book shipment** (if order has `terminalRateId` and not yet booked) |
 | CANCELLED | Read-only |
+
+Book shipment (no body): `POST /admin/orders/:id/book-shipment` — Terminal debits wallet and arranges pickup. Show carrier / `shippingDeliveryTime` / `terminalShipmentId` on detail.
 
 Mark paid body:
 
@@ -726,9 +732,14 @@ PATCH /admin/settings
 **Form sections**
 
 1. Identity — restaurantName, email, phones, address  
-2. Delivery fee  
-3. Business hours — 7 rows Mon→Sun (`open`, `close`, `closed`) + timezone  
-4. Social links  
+2. Delivery fee (fallback when Terminal rates are skipped)  
+3. **Kitchen pickup (Terminal)** — `pickupLine1/2`, city, state, zip, country, phone, email, first/last name  
+   - Required for live rates; copy from Terminal dashboard default address if you already created one there  
+4. **Terminal packaging IDs** — light / standard / large (from `GET /admin/terminal/packaging`)  
+5. Business hours — 7 rows Mon→Sun (`open`, `close`, `closed`) + timezone  
+6. Social links  
+
+Optional Terminal helpers on settings page: `GET /admin/terminal/status`, carriers & packaging (`?page=&limit=`).
 
 **Hours UI**
 
@@ -744,9 +755,10 @@ PATCH /admin/settings
 ```
 Home → Menu → Meal detail → Add to cart → Cart
   → Login/Register (if needed) → Checkout
-  → POST /orders (PENDING)
-  → Open WhatsApp
-  → Admin marks PAID
+  → POST /shipping/rates → pick carrier
+  → POST /orders with shippingRateId (PENDING)
+  → Open WhatsApp (food + delivery + total)
+  → Admin marks PAID → Book shipment
   → Customer sees Paid on /orders/:id
 ```
 
@@ -830,5 +842,8 @@ Customer or Admin removes item while PENDING
 - [ ] Categories CRUD + reorder + upload  
 - [ ] Meals CRUD + upload  
 - [ ] Orders list/detail + mark paid/cancel  
-- [ ] Settings form with structured hours  
-- [ ] Dashboard stats cards  
+- [ ] Checkout: live shipping rates + `shippingRateId`  
+- [ ] Admin orders: mark paid + **Book shipment**  
+- [ ] Settings: kitchen pickup + packaging tier IDs  
+- [ ] Meals: `weightKg` field  
+- [ ] Dashboard stats cards

@@ -159,4 +159,17 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsString()
   pickupLastName?: string;
+
+  /** Terminal packaging IDs — create larger boxes in Terminal for big orders */
+  @IsOptional()
+  @IsString()
+  terminalPackagingIdLight?: string;
+
+  @IsOptional()
+  @IsString()
+  terminalPackagingIdStandard?: string;
+
+  @IsOptional()
+  @IsString()
+  terminalPackagingIdLarge?: string;
 }

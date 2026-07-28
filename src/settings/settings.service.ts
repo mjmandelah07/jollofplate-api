@@ -54,6 +54,9 @@ export class SettingsService {
         pickupEmail: dto.pickupEmail,
         pickupFirstName: dto.pickupFirstName,
         pickupLastName: dto.pickupLastName,
+        terminalPackagingIdLight: dto.terminalPackagingIdLight,
+        terminalPackagingIdStandard: dto.terminalPackagingIdStandard,
+        terminalPackagingIdLarge: dto.terminalPackagingIdLarge,
       },
     });
   }
