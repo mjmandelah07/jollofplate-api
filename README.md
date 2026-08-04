@@ -133,7 +133,16 @@ API defaults to **http://localhost:3001**.
 | `npm run start:dev` | Nest watch mode |
 | `npm run prisma:migrate` | Create/apply migrations |
 | `npm run prisma:seed` | Bootstrap admin + defaults (idempotent — won’t overwrite settings you edited) |
+| `npm run start:render` | Migrate + seed + start (use this as Render start command) |
 | `npm run build` | Production build |
+
+### Render start command
+
+Use **`npm run start:render`** (or `npx prisma migrate deploy && npx prisma db seed && npm run start:prod`).
+
+Migrate alone does **not** create the admin user. Seed is idempotent: it creates admin/settings only if missing and never overwrites an existing password or settings.
+
+One-shot fix if the table is already empty: Render **Shell** → `npx prisma db seed`.
 
 ## Keep-alive (Render free tier)
 
